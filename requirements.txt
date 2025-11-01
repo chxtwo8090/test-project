@@ -12,3 +12,4 @@ PyMySQL
 openai
 bcrypt
 PyJWT
+Flask-CORS
