@@ -35,5 +35,5 @@ jobs:
         ECR_REPOSITORY: project-cluster-flask-app # Terraform ecr.tf에서 정한 이름
         IMAGE_TAG: ${{ github.sha }} # Git 커밋 해시를 이미지 태그로 사용
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./app
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
