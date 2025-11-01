@@ -29,10 +29,7 @@
         .show-modal {
             display: flex;
         }
-        /* 게시글 목록 항목 스타일 */
-        .post-item {
-            cursor: pointer;
-        }
+        .post-item { cursor: pointer; }
         .modal-content {
             background-color: #fefefe;
             padding: 24px;
@@ -98,11 +95,11 @@
             </div>
             
             <div id="post-modal-actions" class="mb-4 text-right">
-                </div>
+            </div>
 
             <h3 class="text-xl font-semibold mb-3 border-b pb-1">댓글</h3>
             <div id="comments-list" class="space-y-3 max-h-48 overflow-y-auto mb-4">
-                </div>
+            </div>
 
             <form id="comment-form" class="mt-4 pt-4 border-t border-gray-200">
                 <textarea id="comment-content" rows="3" placeholder="댓글을 작성하려면 로그인하세요." required 
@@ -127,12 +124,12 @@
             
             <form id="create-post-form" class="space-y-4">
                 <div>
-                    <label for="post-title" class="block text-sm font-medium text-gray-700">제목</label>
-                    <input type="text" id="post-title" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                    <label for="post-title-input" class="block text-sm font-medium text-gray-700">제목</label>
+                    <input type="text" id="post-title-input" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                 </div>
                 <div>
-                    <label for="post-content" class="block text-sm font-medium text-gray-700">내용</label>
-                    <textarea id="post-content" rows="10" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
+                    <label for="post-content-input" class="block text-sm font-medium text-gray-700">내용</label>
+                    <textarea id="post-content-input" rows="10" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
                 </div>
                 <div class="text-right pt-2">
                     <button type="submit" class="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
@@ -191,6 +188,13 @@
         function getAuthToken() {
             return localStorage.getItem('authToken');
         }
+        
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            // 서버가 ISO 8601 형식 (2025-11-01T13:59:05.000Z)으로 반환
+            const date = new Date(dateString);
+            return date.toLocaleString('ko-KR'); // '2025. 11. 1. 오후 10:59:05'
+        }
 
         function updateAuthUI() {
             const authUI = document.getElementById('auth-ui');
@@ -240,7 +244,7 @@
         // =========================================================
         async function loadPosts(searchQuery = '') {
             const postsList = document.getElementById('posts-list');
-            postsList.innerHTML = ''; 
+            postsList.innerHTML = '<p class="text-center text-gray-500">게시글을 로드 중입니다...</p>'; 
 
             try {
                 const url = searchQuery 
@@ -250,10 +254,11 @@
                 const response = await fetch(url); 
                 if (!response.ok) {
                     const errorResponse = await response.json();
-                    throw new Error(errorResponse.message || '게시글 목록 로드 실패');
+                    throw new Error(errorResponse.error || '게시글 목록 로드 실패');
                 }
                 
                 const posts = await response.json();
+                postsList.innerHTML = ''; // 성공 시 초기화
 
                 if (posts.length === 0) {
                     postsList.innerHTML = `<p class="text-center text-gray-500 py-10">${searchQuery ? `'${searchQuery}'에 대한 검색 결과가 없습니다.` : '등록된 게시글이 없습니다.'}</p>`;
@@ -268,17 +273,17 @@
                         <h3 class="text-xl font-bold text-gray-800 truncate">${post.title}</h3>
                         
                         <div class="mt-3 text-sm text-gray-500 flex justify-between items-center border-t pt-2">
-                            <span class="text-indigo-600 font-medium">작성자: ${post.nickname || '익명'}</span> 
+                            <span class="text-indigo-600 font-medium">작성자: ${post.authorName || '익명'}</span> 
                             <div class="flex items-center space-x-3">
                                 <span class="text-xs">조회수: ${post.views || 0}</span>
-                                <span class="text-xs">${post.created_at}</span>
+                                <span class="text-xs">${formatDate(post.created_at)}</span>
                             </div>
                         </div>
                     `;
                     
-                    // ✅ 복원: 클릭 시 상세 모달을 열도록 수정 (데이터도 함께 전달)
+                    // 💡 클릭 시 상세 보기 함수 호출
                     postElement.addEventListener('click', () => {
-                        showPostModal(post.post_id, post.title, post.nickname, post.created_at, post.views); 
+                        showPostModal(post.post_id); 
                     });
 
                     postsList.appendChild(postElement);
@@ -290,62 +295,84 @@
         }
 
         // =========================================================
-        // 2. 게시글 상세 보기/닫기 (Modal Handlers)
+        // 2. 검색 기능
         // =========================================================
+        document.getElementById('search-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const searchInput = document.getElementById('search-input');
+            loadPosts(searchInput.value.trim()); 
+        });
 
+        document.getElementById('reset-search-btn').addEventListener('click', () => {
+            document.getElementById('search-input').value = '';
+            loadPosts(); 
+        });
+
+        // =========================================================
+        // 3. 게시글 상세 보기 (GET /posts/:id) & 댓글 로드
+        // =========================================================
         document.getElementById('close-post-modal-btn').addEventListener('click', closePostModal);
-        document.getElementById('close-create-modal-btn').addEventListener('click', closeCreateModal);
-        document.getElementById('close-edit-modal-btn').addEventListener('click', closeEditModal);
 
-        // 팝업 닫기 함수들
+        async function showPostModal(postId) {
+            currentPostId = postId;
+
+            try {
+                // 1. 게시글 상세 정보 로드 (조회수 자동 증가)
+                const response = await fetch(`${API_URL}/posts/${postId}`);
+                if (!response.ok) {
+                    const errorResponse = await response.json();
+                    throw new Error(errorResponse.error || '게시글 상세 로드 실패');
+                }
+                
+                const post = await response.json();
+
+                // 2. DOM 업데이트 (본문 내용 표시)
+                document.getElementById('modal-post-title').textContent = post.title;
+                document.getElementById('modal-post-author').textContent = `작성자: ${post.authorName || '익명'}`;
+                document.getElementById('modal-post-date').textContent = formatDate(post.created_at);
+                document.getElementById('modal-post-views').textContent = `조회수: ${post.views}`;
+                document.getElementById('modal-post-content').textContent = post.content;
+                
+                // 3. 수정/삭제 버튼 표시 (작성자 본인 확인)
+                const loggedInUserId = getUserId();
+                const isAuthor = loggedInUserId === post.user_id;
+
+                let actionButtons = '';
+                if (isAuthor) {
+                    actionButtons = `
+                        <button id="edit-post-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                            수정
+                        </button>
+                        <button id="delete-post-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                            삭제
+                        </button>
+                    `;
+                }
+                document.getElementById('post-modal-actions').innerHTML = actionButtons;
+
+                if (isAuthor) {
+                    document.getElementById('edit-post-btn').addEventListener('click', openEditModal);
+                    document.getElementById('delete-post-btn').addEventListener('click', deletePost);
+                }
+                
+                // 4. 댓글 로드
+                loadComments(postId);   
+                postModal.classList.add('show-modal'); 
+
+            } catch (error) {
+                console.error("게시글 상세 로드 오류:", error);
+                alert(`게시글을 불러오는 데 실패했습니다: ${error.message}`);
+                closePostModal();
+            }
+        }
+
         function closePostModal() {
             postModal.classList.remove('show-modal');
-            currentPostId = null;
+            loadPosts(); // 목록 새로고침
         }
-        function closeCreateModal() {
-            createPostModal.classList.remove('show-modal');
-            document.getElementById('post-title').value = '';
-            document.getElementById('post-content').value = '';
-        }
-        function closeEditModal() {
-            editPostModal.classList.remove('show-modal');
-        }
-
-
-        // ✅ 복원: 상세 모달 열기 함수 (현재는 내용 없이 기본 정보만 표시)
-        function showPostModal(postId, title, nickname, created_at, views) {
-            currentPostId = postId;
-            
-            // 1. 상세 정보를 모달에 채워 넣습니다.
-            document.getElementById('modal-post-title').textContent = title;
-            document.getElementById('modal-post-author').textContent = `작성자: ${nickname}`;
-            document.getElementById('modal-post-views').textContent = `조회수: ${views || 0}`;
-            document.getElementById('modal-post-date').textContent = `작성일: ${created_at}`;
-
-            // 2. 게시글 내용은 현재 GET /posts에 없으므로, 안내 메시지를 표시합니다.
-            document.getElementById('modal-post-content').innerHTML = `
-                <p class="text-red-500 font-bold mb-2">⚠️ 주의: 게시글 본문 API(GET /posts/id)가 아직 구현되지 않았습니다.</p>
-                <p>다음 단계에서 본문을 가져오는 기능을 추가해야 이 곳에 내용이 표시됩니다.</p>
-            `;
-
-            // 3. 댓글 섹션 및 액션 버튼 초기화 (기능 미구현 안내)
-            document.getElementById('comments-list').innerHTML = `<p class="text-gray-500">댓글 기능은 다음 단계에서 구현됩니다.</p>`;
-            document.getElementById('post-modal-actions').innerHTML = `
-                <button onclick="alert('수정 기능은 다음 단계에서 구현됩니다.')" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
-                    수정
-                </button>
-                <button onclick="alert('삭제 기능은 다음 단계에서 구현됩니다.')" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
-                    삭제
-                </button>
-            `;
-            
-            // 4. 모달을 엽니다.
-            postModal.classList.add('show-modal');
-        }
-
 
         // =========================================================
-        // 3. 게시글 작성 로직 (POST /posts) - JWT 전송 유지
+        // 4. 게시글 작성 로직 (POST /posts) - JWT 전송
         // =========================================================
         document.getElementById('create-post-btn').addEventListener('click', () => {
             if (!getAuthToken()) {
@@ -356,39 +383,39 @@
             createPostModal.classList.add('show-modal');
         });
 
+        document.getElementById('close-create-modal-btn').addEventListener('click', () => {
+            createPostModal.classList.remove('show-modal');
+        });
+
         document.getElementById('create-post-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const title = document.getElementById('post-title').value;
-            const content = document.getElementById('post-content').value;
+            const title = document.getElementById('post-title-input').value; // ID 수정
+            const content = document.getElementById('post-content-input').value; // ID 수정
             
-            // 🔑 JWT 토큰을 가져옵니다.
             const authToken = getAuthToken(); 
-
-            if (!authToken) {
-                alert('게시글 작성을 위해서는 로그인이 필요합니다. (토큰 누락)');
-                return;
-            }
+            
+            if (!authToken) { alert('로그인이 필요합니다.'); return; }
 
             try {
                 const response = await fetch(`${API_URL}/posts`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        // 🔑 JWT 전송
-                        'Authorization': `Bearer ${authToken}` 
+                        'Authorization': `Bearer ${authToken}` // JWT 인증
                     },
-                    body: JSON.stringify({ title, content })
+                    body: JSON.stringify({ title, content }) // user_id는 토큰에서 추출
                 });
 
                 if (!response.ok) {
                     const errorResponse = await response.json();
-                    throw new Error(errorResponse.message || '게시글 작성 실패');
+                    throw new Error(errorResponse.error || errorResponse.message || '게시글 작성 실패');
                 }
 
+                const data = await response.json();
                 alert('게시글이 성공적으로 작성되었습니다.');
-                closeCreateModal(); // 모달 닫기
+                closeCreateModal(); 
                 loadPosts(); 
-
+                
             } catch (error) {
                 console.error("게시글 작성 중 오류:", error);
                 alert('게시글 작성 중 오류가 발생했습니다: ' + error.message);
@@ -397,12 +424,187 @@
 
 
         // =========================================================
-        // 4. 페이지 로드 시 실행
+        // 5. 게시글 수정/삭제 로직 (PUT /posts/:id, DELETE /posts/:id)
+        // =========================================================
+        
+        // 수정 모달 열기
+        function openEditModal() {
+            const title = document.getElementById('modal-post-title').textContent;
+            const content = document.getElementById('modal-post-content').textContent;
+
+            document.getElementById('edit-title').value = title;
+            document.getElementById('edit-content').value = content;
+            
+            postModal.classList.remove('show-modal'); 
+            editPostModal.classList.add('show-modal');    
+        }
+        
+        // 수정 모달 닫기
+        document.getElementById('close-edit-modal-btn').addEventListener('click', () => {
+            document.getElementById('edit-post-modal').classList.remove('show-modal');
+            showPostModal(currentPostId); 
+        });
+
+        // 게시글 수정 처리 (PUT 요청)
+        document.getElementById('edit-post-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('edit-title').value;
+            const content = document.getElementById('edit-content').value;
+            const authToken = getAuthToken();
+            
+            if (!confirm('게시글을 수정하시겠습니까?')) return;
+            if (!authToken) { alert('로그인이 필요합니다.'); return; }
+
+            try {
+                const response = await fetch(`${API_URL}/posts/${currentPostId}`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}` 
+                    },
+                    body: JSON.stringify({ title, content })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || error.message || '게시글 수정 실패');
+                }
+
+                alert('게시글이 성공적으로 수정되었습니다.');
+                editPostModal.classList.remove('show-modal');
+                loadPosts(); 
+                showPostModal(currentPostId); 
+
+            } catch (error) {
+                console.error('게시글 수정 중 오류:', error);
+                alert('게시글 수정 중 오류가 발생했습니다: ' + error.message);
+            }
+        });
+
+        // 게시글 삭제 처리 (DELETE 요청)
+        async function deletePost() {
+            if (!confirm('정말로 이 게시글을 삭제하시겠습니까? (댓글 포함)')) return;
+
+            const authToken = getAuthToken();
+            if (!authToken) { alert('로그인이 필요합니다.'); return; }
+
+            try {
+                const response = await fetch(`${API_URL}/posts/${currentPostId}`, {
+                    method: 'DELETE',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || error.message || '게시글 삭제 실패');
+                }
+
+                alert('게시글이 성공적으로 삭제되었습니다.');
+                closePostModal(); // 모달 닫고 목록 새로고침
+
+            } catch (error) {
+                console.error('게시글 삭제 중 오류:', error);
+                alert('게시글 삭제 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+
+
+        // =========================================================
+        // 6. 댓글 로드 및 작성 로직 (POST /posts/:id/comments)
+        // =========================================================
+        async function loadComments(postId) {
+            const commentsList = document.getElementById('comments-list');
+            commentsList.innerHTML = '<p class="text-center text-gray-400">댓글 로드 중...</p>';
+            try {
+                const response = await fetch(`${API_URL}/posts/${postId}/comments`);
+                if (!response.ok) throw new Error('댓글 목록 로드 실패');
+                
+                const comments = await response.json();
+                commentsList.innerHTML = '';
+                
+                if (comments.length === 0) {
+                    commentsList.innerHTML = '<p class="text-center text-gray-400">아직 댓글이 없습니다.</p>';
+                    return;
+                }
+
+                comments.forEach(comment => {
+                    const commentElement = document.createElement('div');
+                    commentElement.className = 'border-b border-gray-100 pb-2 text-sm';
+                    commentElement.innerHTML = `
+                        <p class="font-medium text-gray-800">${comment.authorName || '익명'}</p>
+                        <p class="text-gray-600 mt-1">${comment.content}</p>
+                        <span class="text-xs text-gray-400 block mt-1">${formatDate(comment.created_at)}</span>
+                    `;
+                    commentsList.appendChild(commentElement);
+                });
+            } catch (error) {
+                console.error("댓글 로드 오류:", error);
+                commentsList.innerHTML = '<p class="text-red-500">댓글 목록 로드에 실패했습니다.</p>';
+            }
+        }
+
+        // 댓글 제출 처리 (POST 요청)
+        const commentForm = document.getElementById('comment-form');
+        commentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const commentContent = document.getElementById('comment-content').value;
+            const authToken = getAuthToken();
+
+            if (!commentContent || commentContent.trim() === '') {
+                alert('댓글 내용을 입력해주세요.');
+                return;
+            }
+            if (!authToken) {
+                alert('댓글 작성을 위해서는 로그인이 필요합니다.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/posts/${currentPostId}/comments`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}` // 인증용 토큰 전송
+                    },
+                    body: JSON.stringify({
+                        content: commentContent
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || error.message || '댓글 작성 실패'); 
+                }
+                
+                document.getElementById('comment-content').value = '';
+                loadComments(currentPostId); // 댓글 목록 새로고침
+            } catch (error) {
+                console.error("댓글 작성 중 오류:", error);
+                alert('댓글 작성 중 오류가 발생했습니다: ' + error.message);
+            }
+        });
+
+
+        // =========================================================
+        // 7. 페이지 로드 시 실행
         // =========================================================
         window.onload = function() {
             updateAuthUI(); 
             loadPosts(); 
         };
+
+        // ESC 키로 모달 닫기
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                postModal.classList.remove('show-modal');
+                createPostModal.classList.remove('show-modal');
+                editPostModal.classList.remove('show-modal');
+            }
+        });
     </script>
 </body>
 </html>
