@@ -8,3 +8,5 @@ boto3
 Werkzeug
 # UUID 생성 (게시글 ID)
 uuid
+PyMySQL
+openai
