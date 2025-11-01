@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - 커뮤니티 게시판</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-2xl">
+        <h2 class="text-3xl font-bold text-center text-gray-900">로그인</h2>
+        <p class="text-center text-gray-500">계속하려면 계정에 로그인하세요.</p>
+
+        <form id="login-form" class="space-y-6">
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
+                <input type="text" id="username" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+                <input type="password" id="password" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+
+            <p id="error-message" class="text-sm text-red-600 hidden"></p>
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-150">로그인</button>
+        </form>
+
+        <p class="text-center text-sm text-gray-500">
+            계정이 없으신가요? 
+            <a href="register.html" class="text-indigo-600 hover:text-indigo-700 font-medium">회원가입</a>
+        </p>
+    </div>
+
+    <script>
+        // 🚨 [주의] 이 API_URL 변수는 실제 로드 밸런서 DNS 주소로 변경해야 합니다.
+        const API_URL = 'http://api.chxtwo.kro.kr'; 
+
+        const loginForm = document.getElementById('login-form');
+        const errorMessage = document.getElementById('error-message');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMessage.classList.add('hidden');
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // 1. 서버에서 받은 JWT 토큰을 로컬 스토리지에 저장
+                    localStorage.setItem('authToken', data.token); 
+                    
+                    // 🛠️ 수정된 부분: 사용자 고유 ID(숫자)와 닉네임 저장 (로그인 유지의 핵심)
+                    localStorage.setItem('loggedInUserId', data.user_id); 
+                    localStorage.setItem('loggedInNickname', data.nickname);
+                    
+                    // 2. 로그인 성공 후 게시판 페이지로 리디렉션
+                    window.location.href = 'index.html'; 
+
+                } else {
+                    const error = await response.json();
+                    errorMessage.textContent = error.message || '로그인에 실패했습니다. 아이디와 비밀번호를 확인해주세요.';
+                    errorMessage.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error("로그인 중 오류 발생:", error);
+                errorMessage.textContent = '서버 연결에 실패했습니다. 네트워크 상태를 확인해주세요.';
+                errorMessage.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

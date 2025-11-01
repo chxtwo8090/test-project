@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>네이버 증시 클론 - 금융 뉴스 분석 플랫폼</title>
+    <style>
+        /* 기본 스타일 초기화 및 폰트 설정 */
+        body {
+            font-family: 'Naver NanumGothic', 'Malgun Gothic', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f7f7f7; /* 네이버 배경색과 유사 */
+            color: #1c1c1c;
+        }
+
+        /* 헤더 스타일 */
+        header {
+            background-color: #fff;
+            border-bottom: 1px solid #ebebeb;
+            padding: 10px 0;
+        }
+        .header-content {
+            width: 1080px; /* 네이버 표준 너비 */
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo a {
+            font-size: 24px;
+            font-weight: bold;
+            color: #008850; /* 네이버 그린 */
+            text-decoration: none;
+        }
+        nav a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: #333;
+            font-size: 14px;
+        }
+
+        /* 메인 컨텐츠 영역 */
+        .container {
+            width: 1080px;
+            margin: 20px auto;
+            display: flex; /* 메인 컨텐츠를 가로로 배치 */
+            gap: 20px;
+        }
+
+        /* 왼쪽 섹션 (주요 지수, 관심종목, 뉴스/토론 등) */
+        .main-content {
+            flex: 3; /* 70% 정도 너비 */
+            min-width: 700px;
+        }
+
+        /* 오른쪽 섹션 (광고, 랭킹 등 보조 정보) */
+        .side-content {
+            flex: 1; /* 30% 정도 너비 */
+            min-width: 300px;
+        }
+
+        /* 공통 카드 스타일 */
+        .card {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .card h3 {
+            border-bottom: 2px solid #008850;
+            padding-bottom: 10px;
+            margin-top: 0;
+            font-size: 18px;
+            color: #1c1c1c;
+        }
+
+        /* 주요 지수 카드 스타일 */
+        .index-card {
+            display: flex;
+            justify-content: space-between;
+            text-align: center;
+        }
+        .index-item {
+            flex: 1;
+        }
+        .index-item .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #d84a4a; /* 하락 가정 */
+            margin-top: 5px;
+        }
+        .index-item .change {
+            font-size: 16px;
+            color: #d84a4a; /* 하락 가정 */
+        }
+
+        /* 뉴스 목록 스타일 */
+        .news-list {
+            list-style: none;
+            padding: 0;
+        }
+        .news-list li {
+            border-bottom: 1px dotted #eee;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        .news-list li:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-content">
+            <div class="logo"><a href="#">네이버 증시</a></div>
+            <nav>
+                <a href="#">국내증시</a>
+                <a href="#">해외증시</a>
+                <a href="#">시장분석</a>
+                <a href="#">금융뉴스</a>
+                <a href="#">마이페이지</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="card">
+                <h3>주요 증시</h3>
+                <div class="index-card">
+                    <div class="index-item">
+                        <p>KOSPI</p>
+                        <p class="value">2,500.00</p>
+                        <p class="change">-10.50 (-0.42%)</p>
+                    </div>
+                    <div class="index-item">
+                        <p>KOSDAQ</p>
+                        <p class="value" style="color: #008850;">850.50</p>
+                        <p class="change" style="color: #008850;">+5.25 (+0.62%)</p>
+                    </div>
+                    <div class="index-item">
+                        <p>환율(USD/KRW)</p>
+                        <p class="value" style="color: #d84a4a;">1,350.50</p>
+                        <p class="change" style="color: #d84a4a;">+2.50 (+0.18%)</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>금융 뉴스 및 분석 결과</h3>
+                <ul class="news-list">
+                    <li><a href="#">[속보] 파월 의장, 인플레이션 둔화 발언... 뉴욕 증시 상승 마감</a></li>
+                    <li><a href="#">LLM 기반 종목 분석: '삼성전자', 매수 의견 지배적</a></li>
+                    <li><a href="#">유럽 증시, 에너지주 강세에 힘입어 일제히 오름세</a></li>
+                    <li><a href="#">[단독] 신규 AI 칩 출시 임박 소식에 관련주 급등</a></li>
+                    <li><a href="#">오늘의 외신 헤드라인: 글로벌 경기 침체 우려 완화</a></li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>주요 종목</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #f5f5f5;">
+                            <th style="padding: 8px; text-align: left;">종목명</th>
+                            <th style="padding: 8px; text-align: right;">현재가</th>
+                            <th style="padding: 8px; text-align: right;">등락률</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px dotted #eee;">삼성전자</td>
+                            <td style="padding: 8px; text-align: right;">70,000</td>
+                            <td style="padding: 8px; text-align: right; color: #d84a4a;">-1.50%</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px dotted #eee;">SK하이닉스</td>
+                            <td style="padding: 8px; text-align: right;">120,000</td>
+                            <td style="padding: 8px; text-align: right; color: #008850;">+2.10%</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px;">네이버</td>
+                            <td style="padding: 8px; text-align: right;">250,000</td>
+                            <td style="padding: 8px; text-align: right; color: #d84a4a;">-0.80%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+        <div class="side-content">
+            <div class="card">
+                <h3>나의 관심 종목</h3>
+                <ul class="news-list">
+                    <li><a href="#">OO전자 (+3.5%)</a></li>
+                    <li><a href="#">XX바이오 (-1.2%)</a></li>
+                    <li><a href="#">YY화학 (보합)</a></li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h3>인기 검색 순위</h3>
+                <ol style="padding-left: 20px;">
+                    <li>카카오</li>
+                    <li>POSCO</li>
+                    <li>LG에너지솔루션</li>
+                </ol>
+            </div>
+            
+        </div>
+    </div>
+
+    
+</body>
+<script>
+        // 🚨 [주의] 이 API_URL 변수는 실제 로드 밸런서 DNS 주소로 변경해야 합니다.
+        // 현재는 Flask 개발 서버 주소로 가정합니다.
+        const API_URL = 'http://localhost:5000'; 
+        
+        async function loadFinanceData() {
+            try {
+                // Flask 백엔드에서 준비된 증시 정보 API 호출
+                const response = await fetch(`${API_URL}/api/finance`);
+                if (!response.ok) throw new Error('금융 데이터 로드 실패');
+                
+                const data = await response.json();
+                
+                // 1. 주요 증시 지수 업데이트
+                updateIndex('KOSPI', data.KOSPI);
+                updateIndex('KOSDAQ', data.KOSDAQ);
+                updateIndex('환율(USD/KRW)', data.USD_KRW);
+                
+                // 2. 뉴스 목록 업데이트
+                updateNewsList(data.news);
+                
+                // 3. 주요 종목 테이블 업데이트
+                updateTopStocks(data.top_stocks);
+
+            } catch (error) {
+                console.error("금융 데이터 로드 오류:", error);
+                // 오류 메시지 표시 등의 처리
+                document.querySelector('.index-card').innerHTML = '<p style="color:red; text-align:center;">데이터 로드에 실패했습니다. Flask 서버를 확인하세요.</p>';
+            }
+        }
+
+        // 지수 항목 업데이트 함수
+        function updateIndex(name, indexData) {
+            const indexItems = document.querySelectorAll('.index-item');
+            let targetItem = null;
+            
+            // 이름으로 해당 DOM 요소를 찾음
+            indexItems.forEach(item => {
+                if (item.querySelector('p').textContent.includes(name.split('(')[0].trim())) {
+                    targetItem = item;
+                }
+            });
+
+            if (targetItem) {
+                const valueElement = targetItem.querySelector('.value');
+                const changeElement = targetItem.querySelector('.change');
+
+                valueElement.textContent = indexData.value;
+                changeElement.textContent = indexData.change;
+
+                // 등락에 따른 색상 적용 (기존 스타일 유지하며 업데이트)
+                let color = '#d84a4a'; // 기본 하락 (빨간색)
+                if (indexData.status === 'up') {
+                    color = '#008850'; // 상승 (녹색)
+                } else if (indexData.status === 'flat') {
+                    color = '#1c1c1c'; // 보합 (검정)
+                }
+                
+                valueElement.style.color = color;
+                changeElement.style.color = color;
+            }
+        }
+
+        // 뉴스 목록 업데이트 함수
+        function updateNewsList(news) {
+            const newsListUl = document.querySelector('.news-list');
+            // '금융 뉴스 및 분석 결과' 카드에 해당하는 ul만 타겟팅 (CSS 구조상)
+            if (newsListUl) { 
+                newsListUl.innerHTML = '';
+                news.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<a href="#">${item}</a>`;
+                    newsListUl.appendChild(li);
+                });
+            }
+        }
+
+        // 주요 종목 테이블 업데이트 함수
+        function updateTopStocks(stocks) {
+            const tableBody = document.querySelector('.card:nth-child(3) tbody');
+            if (tableBody) {
+                tableBody.innerHTML = '';
+                stocks.forEach((stock, index) => {
+                    // 등락률에 따른 색상 결정
+                    let color = '#1c1c1c'; // 기본 검정
+                    if (stock.rate.includes('+')) {
+                        color = '#008850'; // 상승 (녹색)
+                    } else if (stock.rate.includes('-')) {
+                        color = '#d84a4a'; // 하락 (빨간색)
+                    }
+
+                    const row = `
+                        <tr>
+                            <td style="padding: 8px; ${index < stocks.length - 1 ? 'border-bottom: 1px dotted #eee;' : ''}">${stock.name}</td>
+                            <td style="padding: 8px; text-align: right;">${stock.price}</td>
+                            <td style="padding: 8px; text-align: right; color: ${color};">${stock.rate}</td>
+                        </tr>
+                    `;
+                    tableBody.innerHTML += row;
+                });
+            }
+        }
+
+
+        // 페이지 로드 시 데이터 로드 시작
+        loadFinanceData(); 
+
+        // 1분(60000ms)마다 데이터 새로고침 (실시간 효과)
+        setInterval(loadFinanceData, 60000); 
+    </script>
+</html>
