@@ -315,33 +315,54 @@ def create_comment(post_id):
 # =======================================================
 @app.route('/api/finance/summary', methods=['GET'])
 def get_finance_summary():
-    """인터넷 연결 없이 가짜(Mock) 데이터를 반환합니다."""
+    """네이버 실시간 지수 API를 호출하여 KOSPI, KOSDAQ 정보를 반환합니다."""
     
-    # 💡 [핵심 수정] 네트워크 요청 대신, 하드코딩된 데이터를 즉시 반환
+    # 네이버에서 비공식적으로 제공하는 실시간 지수 API
+    url = "https://api.finance.beta.naver.com/naverpay/api/public/realtime/domestic/stock/major"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
     try:
-        mock_data = {
+        # 이제 이 요청이 VPC 외부로 정상적으로 나가야 합니다.
+        response = requests.get(url, headers=headers)
+        response.raise_for_status() # 200 OK가 아니면 에러 발생
+        
+        data = response.json()
+        
+        # API 응답에서 KOSPI, KOSDAQ 정보만 추출
+        kospi_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSPI')
+        kosdaq_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSDAQ')
+
+        # API 응답 형식에 맞춰 데이터 가공
+        kospi_change_sign = kospi_data.get('fluctuationsSign', '')
+        kospi_change_val = kospi_data.get('fluctuations', '0')
+        kospi_change_ratio = kospi_data.get('fluctuationsRatio', '0')
+        
+        kosdaq_change_sign = kosdaq_data.get('fluctuationsSign', '')
+        kosdaq_change_val = kosdaq_data.get('fluctuations', '0')
+        kosdaq_change_ratio = kosdaq_data.get('fluctuationsRatio', '0')
+
+        return jsonify({
             "kospi": {
-                "value": "2,750.00",
-                "change": "+15.50 (+0.57%)"
+                "value": kospi_data.get('closePrice'),
+                "change": f"{kospi_change_sign}{kospi_change_val} ({kospi_change_ratio}%)"
             },
             "kosdaq": {
-                "value": "900.00",
-                "change": "-1.20 (-0.13%)"
+                "value": kosdaq_data.get('closePrice'),
+                "change": f"{kosdaq_change_sign}{kosdaq_change_val} ({kosdaq_change_ratio}%)"
             }
-        }
-        
-        return jsonify(mock_data), 200
+        }), 200
 
     except Exception as e:
-        # 이 코드는 거의 실행될 일이 없지만, 만일을 대비해 남겨둡니다.
+        # OpenAPI 호출 실패 또는 데이터 파싱 실패 시
         error_detail = str(e)
-        print(f"Mock 데이터 생성 오류: {error_detail}")
+        print(f"금융 정보 API 호출 오류: {error_detail}")
         
         return jsonify({
-            "error": "Mock 데이터를 생성하는 데 실패했습니다.", 
+            "error": "금융 정보를 가져오는 데 실패했습니다.", 
             "detail": error_detail
         }), 400
-
 # =======================================================
 # 12. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
