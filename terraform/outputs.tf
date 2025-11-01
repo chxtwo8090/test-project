@@ -1,19 +1,19 @@
-output "cluster_name" {
-  description = "EKS 클러스터 이름"
-  value       = module.eks.cluster_name
+output "vpc_id" {
+  description = "생성된 VPC의 ID"
+  value       = aws_vpc.main.id
 }
 
-output "cluster_endpoint" {
-  description = "EKS 클러스터 API 서버 주소"
-  value       = module.eks.cluster_endpoint
+output "public_subnet_ids" {
+  description = "생성된 퍼블릭 서브넷 ID 목록 (ALB, ECS 배치용)"
+  value       = [aws_subnet.public_a.id, aws_subnet.public_c.id]
 }
 
-output "ecr_repository_url" {
-  description = "Flask 앱 이미지를 푸시할 ECR 주소"
-  value       = aws_ecr_repository.flask_app.repository_url
+output "s3_bucket_name" {
+  description = "프론트엔드 파일(HTML 등)을 업로드할 S3 버킷 이름"
+  value       = aws_s3_bucket.frontend.id
 }
-output "alb_controller_role_arn" {
-  description = "AWS Load Balancer Controller가 사용할 IAM Role의 ARN"
-  value       = aws_iam_role.alb_controller_role.arn
+
+output "cloudfront_domain" {
+  description = "프론트엔드 접속 주소 (이 주소로 브라우저에서 확인)"
+  value       = aws_cloudfront_distribution.frontend.domain_name
 }
-#798874239435.dkr.ecr.ap-northeast-2.amazonaws.com/project-cluster-flask-app
