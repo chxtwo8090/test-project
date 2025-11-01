@@ -1,6 +1,9 @@
 import os
 import pymysql
-import bcrypt
+import bcrypt # ⬅️ 추가된 비밀번호 암호화 라이브러리
+import jwt      # 🚨 다음 단계인 로그인 구현을 위해 미리 추가합니다.
+import time
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -8,8 +11,13 @@ from flask_cors import CORS
 # 1. Flask 애플리케이션 초기 설정
 # =======================================================
 app = Flask(__name__)
-# 모든 도메인에서의 접속을 허용합니다. (테스트 목적)
+# 모든 도메인에서의 접속을 허용합니다. (CORS 설정)
 CORS(app) 
+
+# JWT 토큰 생성을 위한 비밀 키 (배포 환경에서 반드시 환경 변수로 설정되어야 합니다.)
+# 현재는 임시 키를 사용합니다. 실제 배포 시에는 GitHub Secrets에 등록하세요.
+SECRET_KEY = os.environ.get("SECRET_KEY", "your_strong_secret_key_that_should_be_in_secrets")
+
 
 # =======================================================
 # 2. RDS 환경 변수 로드 (GitHub Secrets에서 주입된 값)
@@ -24,6 +32,11 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD")
 # =======================================================
 def get_db_connection():
     """RDS MySQL 연결을 생성하고 반환합니다."""
+    # 환경 변수 중 하나라도 없으면 연결 시도 안 함
+    if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD]):
+        print("Error: DB environment variables are not set.")
+        return None
+        
     try:
         conn = pymysql.connect(
             host=DB_HOST,
@@ -31,73 +44,90 @@ def get_db_connection():
             password=DB_PASSWORD,
             database=DB_NAME,
             charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor
+            cursorclass=pymysql.cursors.DictCursor # 딕셔너리 형태로 결과를 받기 위해 설정
         )
         return conn
     except Exception as e:
         # CloudWatch Logs에 오류를 출력
-        print(f"Database connection error: {e}")
-        # DB 연결 실패 시 에러를 반환
-        return None
+         print(f"Database connection error: {e}")
+         return None
 
 # =======================================================
 # 4. 기본 엔드포인트 (ALB 연결 테스트용)
 # =======================================================
-@app.route('/')
+@app.route('/', methods=['GET'])
 def home():
-    """ALB가 Flask 앱까지 연결되었는지 확인하는 기본 엔드포인트"""
-    try:
-        conn = get_db_connection()
-        if conn:
-            conn.close()
-            return jsonify({"status": "ok", "message": "Flask 앱과 RDS 연결 확인됨!"}), 200
-        else:
-            return jsonify({"status": "error", "message": "Flask 앱 실행 중, RDS 연결 실패."}), 500
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"서버 오류: {e}"}), 500
-
+    return jsonify({"message": "Flask Backend is running! (v1.0)"})
 
 # =======================================================
-# 5. [뼈대] 회원가입 API (register.html에서 사용)
+# 5. [완성] 회원가입 API (/register)
 # =======================================================
 @app.route('/register', methods=['POST'])
 def register_user():
-    """회원가입 요청 처리 엔드포인트"""
+    """회원가입 요청을 처리하고 사용자 정보를 DB에 저장합니다."""
     data = request.get_json()
     username = data.get('username')
     nickname = data.get('nickname')
     password = data.get('password')
 
+    # 필수 필드 누락 체크
     if not all([username, nickname, password]):
-        return jsonify({"message": "필수 정보가 누락되었습니다."}), 400
+        return jsonify({"message": "아이디, 닉네임, 비밀번호를 모두 입력해주세요."}), 400
 
     conn = get_db_connection()
     if conn is None:
-        return jsonify({"message": "데이터베이스 연결에 실패했습니다."}), 500
-
-    # 🚨 여기에 실제 DB INSERT 로직이 들어갑니다. (현재는 뼈대만)
-    # try:
-    #     with conn.cursor() as cursor:
-    #         # 1. DB에 사용자 테이블이 있어야 합니다.
-    #         # 2. 중복 체크 및 암호화 로직이 필요합니다.
-    #         # SQL = "INSERT INTO users (username, nickname, password) VALUES (%s, %s, %s)"
-    #         # cursor.execute(SQL, (username, nickname, password))
-    #     conn.commit()
-    #     conn.close()
-    #     return jsonify({"message": "회원가입에 성공했습니다."}), 201
-    # except pymysql.err.IntegrityError:
-    #     conn.close()
-    #     return jsonify({"message": "이미 사용 중인 아이디입니다."}), 409
-    # except Exception as e:
-    #     conn.close()
-    #     return jsonify({"message": f"회원가입 중 서버 오류가 발생했습니다: {e}"}), 500
+        return jsonify({"message": "데이터베이스 연결에 실패했습니다. (환경 변수/접속 확인)"}), 500
     
-    # ⬇️ 임시 응답 (DB 연결 없이 API 뼈대만 작동 확인)
-    conn.close()
-    return jsonify({"message": f"회원가입 API 호출 성공 (DB 연결 필요): {username}"}), 201
+    # 1. 비밀번호 해시 (암호화)
+    # bcrypt는 바이트 문자열을 사용하므로, encode() 호출하여 해시 후, decode()로 문자열로 저장
+    try:
+        # Cost Factor는 12로 설정 (기본값)
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    except Exception as e:
+        print(f"Bcrypt hashing error: {e}")
+        return jsonify({"message": "비밀번호 암호화 중 오류가 발생했습니다."}), 500
 
 
+    try:
+        with conn.cursor() as cursor:
+            # 2. 아이디 중복 체크
+            # SQL Injection 방지를 위해 %s 사용
+            cursor.execute("SELECT user_id FROM users WHERE username = %s", (username,))
+            if cursor.fetchone():
+                return jsonify({"message": "이미 사용 중인 아이디입니다."}), 409
+            
+            # 3. DB에 사용자 정보 삽입
+            SQL = "INSERT INTO users (username, nickname, password_hash) VALUES (%s, %s, %s)"
+            cursor.execute(SQL, (username, nickname, hashed_password))
+
+        conn.commit()
+        
+        # 201 Created 응답
+        return jsonify({"message": "회원가입에 성공했습니다. 로그인 페이지로 이동합니다."}), 201
+
+    except Exception as e:
+        # SQL 관련 오류 발생 시
+        print(f"회원가입 중 DB 오류 발생: {e}") 
+        return jsonify({"message": "회원가입 중 서버 오류가 발생했습니다."}), 500
+    finally:
+        # 연결은 항상 닫아줍니다.
+        if conn:
+            conn.close()
+
+
+# =======================================================
+# 6. 로그인 API (/login) - 🚨 다음 단계에서 완성할 예정입니다.
+# =======================================================
+@app.route('/login', methods=['POST'])
+def login_user():
+    # 이 부분은 다음 단계에서 완성합니다.
+    return jsonify({"message": "로그인 기능은 아직 구현되지 않았습니다."}), 501
+
+
+# =======================================================
+# 7. Gunicorn 또는 로컬 테스트용 실행
+# =======================================================
 if __name__ == '__main__':
-    # Gunicorn이 서버를 실행하므로, 이 블록은 로컬 테스트용입니다.
-    # ECS에서는 실행되지 않습니다.
-    app.run(host='0.0.0.0', port=80)
+    # 로컬 테스트 시, 환경 변수를 설정해야 DB 연결이 가능합니다.
+    # Ex) os.environ['DB_HOST']='127.0.0.1', ...
+    app.run(host='0.0.0.0', port=80, debug=True)
