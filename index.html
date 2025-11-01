@@ -170,8 +170,7 @@
     </div>
 
     <script>
-        // 🚨 [주의] 이 API_URL 변수는 실제 로드 밸런서 DNS 주소로 변경해야 합니다.
-        // 예: const API_URL = 'http://project-512539823.ap-northeast-2.elb.amazonaws.com';
+        // API 주소 설정 (도메인 주소로 통일)
         const API_URL = 'http://api.chxtwo.kro.kr'; 
 
         const postModal = document.getElementById('post-modal');
@@ -186,6 +185,11 @@
         function getUserId() {
             const id = localStorage.getItem('loggedInUserId');
             return id ? parseInt(id, 10) : null;
+        }
+
+        // 🔑 [추가] JWT 토큰을 가져오는 함수
+        function getAuthToken() {
+            return localStorage.getItem('authToken');
         }
 
         // 로그인 상태에 따라 UI를 업데이트합니다.
@@ -234,7 +238,7 @@
         }
 
         // =========================================================
-        // 1. 게시글 목록 로드 (🛠️ 수정: 검색 기능 포함)
+        // 1. 게시글 목록 로드 (GET /posts)
         // =========================================================
         async function loadPosts(searchQuery = '') {
             const postsList = document.getElementById('posts-list');
@@ -247,7 +251,11 @@
                     : `${API_URL}/posts`;
                     
                 const response = await fetch(url); 
-                if (!response.ok) throw new Error('게시글 목록 로드 실패');
+                if (!response.ok) {
+                    // 서버가 응답했으나 200이 아닌 경우
+                    const errorResponse = await response.json();
+                    throw new Error(errorResponse.message || '게시글 목록 로드 실패');
+                }
                 
                 const posts = await response.json();
 
@@ -260,15 +268,15 @@
                     const postElement = document.createElement('div');
                     postElement.className = 'post-item bg-white p-4 rounded-xl shadow-lg border border-gray-200 hover:border-indigo-400 transition duration-300 transform hover:scale-[1.01]';
                     
-                    // 게시글 제목만 표시 (이전 요청 반영)
+                    // 게시글 제목만 표시 
                     postElement.innerHTML = `
                         <h3 class="text-xl font-bold text-gray-800 truncate">${post.title}</h3>
                         
                         <div class="mt-3 text-sm text-gray-500 flex justify-between items-center border-t pt-2">
-                            <span class="text-indigo-600 font-medium">작성자: ${post.authorName || '익명'}</span> 
+                            <span class="text-indigo-600 font-medium">작성자: ${post.nickname || '익명'}</span> 
                             <div class="flex items-center space-x-3">
                                 <span class="text-xs">조회수: ${post.views || 0}</span>
-                                <span class="text-xs">${new Date(post.created_at).toLocaleDateString()}</span>
+                                <span class="text-xs">${post.created_at}</span>
                             </div>
                         </div>
                     `;
@@ -281,90 +289,15 @@
                 });
             } catch (error) {
                 console.error("게시글 로드 오류:", error);
-                postsList.innerHTML = '<p class="text-red-500">게시글 목록을 불러오는 데 실패했습니다. (CORS 또는 서버 오류 확인 필요)</p>';
+                postsList.innerHTML = `<p class="text-red-500 py-10">게시글 목록을 불러오는 데 실패했습니다. (CORS 또는 서버 오류: ${error.message})</p>`;
             }
         }
 
         // =========================================================
-        // 2. 검색 기능 이벤트 리스너
-        // =========================================================
-        document.getElementById('search-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const searchInput = document.getElementById('search-input');
-            loadPosts(searchInput.value.trim()); // 입력된 검색어로 게시글 로드
-        });
-
-        document.getElementById('reset-search-btn').addEventListener('click', () => {
-            document.getElementById('search-input').value = '';
-            loadPosts(); // 검색어 없이 전체 게시글 로드
-        });
-
-        // =========================================================
-        // 3. 게시글 상세 및 댓글 로드 (showPostModal)
-        // =========================================================
-        async function showPostModal(postId) {
-            try {
-                const response = await fetch(`${API_URL}/posts/${postId}`);
-                if (!response.ok) throw new Error('게시글 상세 로드 실패');
-                
-                const post = await response.json();
-
-                document.getElementById('modal-post-title').textContent = post.title;
-                document.getElementById('modal-post-author').textContent = `작성자: ${post.authorName || '익명'}`;
-                document.getElementById('modal-post-date').textContent = new Date(post.created_at).toLocaleDateString();
-                document.getElementById('modal-post-views').textContent = `조회수: ${post.views + 1}`; // 이미 증가된 조회수 표시
-                document.getElementById('modal-post-content').textContent = post.content;
-                
-                currentPostId = postId; 
-                
-                // 🛠️ 추가: 게시글 작성자와 로그인 사용자가 일치하는지 확인하여 수정/삭제 버튼 표시
-                const loggedInUserId = getUserId();
-                // user_id는 DB에서 숫자로 오므로, getUserId()의 결과와 비교 (숫자 vs 숫자)
-                const isAuthor = loggedInUserId === post.user_id;
-
-                let actionButtons = '';
-                if (isAuthor) {
-                    actionButtons = `
-                        <div class="flex space-x-2 justify-end">
-                            <button id="edit-post-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
-                                수정
-                            </button>
-                            <button id="delete-post-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
-                                삭제
-                            </button>
-                        </div>
-                    `;
-                }
-                document.getElementById('post-modal-actions').innerHTML = actionButtons;
-
-                if (isAuthor) {
-                    // 버튼을 DOM에 추가한 후 이벤트 리스너를 붙여야 합니다.
-                    document.getElementById('edit-post-btn').addEventListener('click', openEditModal);
-                    document.getElementById('delete-post-btn').addEventListener('click', deletePost);
-                }
-                
-                loadComments(postId);   
-                postModal.classList.add('show-modal'); 
-
-            } catch (error) {
-                console.error("게시글 상세 로드 오류:", error);
-                alert('게시글을 불러오는 데 실패했습니다.');
-            }
-        }
-
-        // 모달 닫기
-        document.getElementById('close-post-modal-btn').addEventListener('click', closePostModal);
-
-        function closePostModal() {
-            postModal.classList.remove('show-modal');
-            loadPosts(); // 목록 새로고침
-        }
-        
-        // =========================================================
-        // 4. 게시글 작성 로직 (기존 코드 유지)
+        // 4. 게시글 작성 로직 (POST /posts)
         // =========================================================
         document.getElementById('create-post-btn').addEventListener('click', () => {
-            if (!getUserId()) {
+            if (!getAuthToken()) {
                 alert('게시글 작성을 위해서는 로그인이 필요합니다.');
                 return;
             }
@@ -380,16 +313,31 @@
             e.preventDefault();
             const title = document.getElementById('post-title').value;
             const content = document.getElementById('post-content').value;
-            const authorId = getUserId();
             
+            // 🔑 [핵심 수정] 로컬 스토리지에서 JWT 토큰을 가져옵니다.
+            const authToken = getAuthToken(); 
+
+            if (!authToken) {
+                alert('게시글 작성을 위해서는 로그인이 필요합니다. (토큰 누락)');
+                return;
+            }
+
             try {
                 const response = await fetch(`${API_URL}/posts`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, content, authorId })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        // 🔑 [JWT 전송] 토큰을 Authorization 헤더에 Bearer 타입으로 담아 보냅니다.
+                        'Authorization': `Bearer ${authToken}` 
+                    },
+                    body: JSON.stringify({ title, content })
                 });
 
-                if (!response.ok) throw new Error('게시글 작성 실패');
+                if (!response.ok) {
+                    // 서버 오류 메시지를 받아 처리 (예: 401 Unauthorized, 500 Server Error)
+                    const errorResponse = await response.json();
+                    throw new Error(errorResponse.message || '게시글 작성 실패');
+                }
 
                 alert('게시글이 성공적으로 작성되었습니다.');
                 createPostModal.classList.remove('show-modal');
@@ -397,187 +345,13 @@
 
             } catch (error) {
                 console.error("게시글 작성 중 오류:", error);
-                alert('게시글 작성 중 오류가 발생했습니다.');
+                alert('게시글 작성 중 오류가 발생했습니다: ' + error.message);
             }
         });
 
 
         // =========================================================
-        // 5. 댓글 로드 및 작성 로직 (기존 코드 유지)
-        // =========================================================
-        async function loadComments(postId) {
-            const commentsList = document.getElementById('comments-list');
-            commentsList.innerHTML = '<p class="text-center text-gray-400">댓글 로드 중...</p>';
-            try {
-                const response = await fetch(`${API_URL}/posts/${postId}/comments`);
-                if (!response.ok) throw new Error('댓글 목록 로드 실패');
-                
-                const comments = await response.json();
-                commentsList.innerHTML = '';
-                
-                if (comments.length === 0) {
-                    commentsList.innerHTML = '<p class="text-center text-gray-400">아직 댓글이 없습니다.</p>';
-                    return;
-                }
-
-                comments.forEach(comment => {
-                    const commentElement = document.createElement('div');
-                    commentElement.className = 'border-b border-gray-100 pb-2 text-sm';
-                    commentElement.innerHTML = `
-                        <p class="font-medium text-gray-800">${comment.authorName || '익명'}</p>
-                        <p class="text-gray-600 mt-1">${comment.content}</p>
-                        <span class="text-xs text-gray-400 block mt-1">${new Date(comment.created_at).toLocaleDateString()}</span>
-                    `;
-                    commentsList.appendChild(commentElement);
-                });
-            } catch (error) {
-                console.error("댓글 로드 오류:", error);
-                commentsList.innerHTML = '<p class="text-red-500">댓글 목록 로드에 실패했습니다.</p>';
-            }
-        }
-
-        // 댓글 제출 처리 (POST 요청)
-        const commentForm = document.getElementById('comment-form');
-        commentForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const commentContent = document.getElementById('comment-content').value;
-            const loggedInUserId = getUserId();
-
-            if (!commentContent || commentContent.trim() === '') {
-                alert('댓글 내용을 입력해주세요.');
-                return;
-            }
-            
-            if (!loggedInUserId) {
-                alert('댓글 작성을 위해서는 로그인이 필요합니다.');
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_URL}/posts/${currentPostId}/comments`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        content: commentContent,
-                        // 숫자로 변환하여 전송 (DB INT 타입에 맞춤)
-                        authorId: parseInt(loggedInUserId, 10), 
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || '댓글 작성 실패'); 
-                }
-                
-                document.getElementById('comment-content').value = '';
-                console.log("댓글 작성 성공.");
-                loadComments(currentPostId); // 댓글 목록 새로고침
-            } catch (error) {
-                console.error("댓글 작성 중 오류:", error);
-                alert('댓글 작성 중 오류가 발생했습니다. 로그를 확인해주세요: ' + error.message);
-            }
-        });
-
-
-        // =========================================================
-        // 6. 게시글 수정/삭제 로직 (🛠️ 새로 추가된 기능)
-        // =========================================================
-        
-        // 수정 모달 열기
-        function openEditModal() {
-            const editModal = document.getElementById('edit-post-modal');
-            
-            // 현재 게시글 상세 모달의 내용을 가져와 수정 모달에 채웁니다.
-            const title = document.getElementById('modal-post-title').textContent;
-            const content = document.getElementById('modal-post-content').textContent;
-
-            document.getElementById('edit-title').value = title;
-            document.getElementById('edit-content').value = content;
-            
-            postModal.classList.remove('show-modal'); // 상세 모달 닫기
-            editModal.classList.add('show-modal');    // 수정 모달 열기
-        }
-        
-        // 수정 모달 닫기
-        document.getElementById('close-edit-modal-btn').addEventListener('click', () => {
-            document.getElementById('edit-post-modal').classList.remove('show-modal');
-            showPostModal(currentPostId); // 수정 모달 닫고 다시 상세 모달 열기
-        });
-
-        // 게시글 수정 처리 (PUT 요청)
-        document.getElementById('edit-post-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const title = document.getElementById('edit-title').value;
-            const content = document.getElementById('edit-content').value;
-            const authorId = getUserId(); 
-            
-            if (!confirm('게시글을 수정하시겠습니까?')) return;
-
-            try {
-                const response = await fetch(`${API_URL}/posts/${currentPostId}`, {
-                    method: 'PUT',
-                    headers: { 
-                        'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({ 
-                        title, 
-                        content,
-                        authorId // 백엔드 검증을 위해 ID 전송
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || '게시글 수정 실패');
-                }
-
-                alert('게시글이 성공적으로 수정되었습니다.');
-                document.getElementById('edit-post-modal').classList.remove('show-modal');
-                loadPosts(); // 목록 새로고침
-                showPostModal(currentPostId); // 수정된 내용으로 상세 모달 다시 열기
-
-            } catch (error) {
-                console.error('게시글 수정 중 오류:', error);
-                alert('게시글 수정 중 오류가 발생했습니다: ' + error.message);
-            }
-        });
-
-
-        // 게시글 삭제 처리 (DELETE 요청)
-        async function deletePost() {
-            if (!confirm('정말로 이 게시글을 삭제하시겠습니까? (댓글 포함)')) return;
-
-            const authorId = getUserId();
-            
-            try {
-                const response = await fetch(`${API_URL}/posts/${currentPostId}`, {
-                    method: 'DELETE',
-                    headers: { 
-                        'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({ 
-                        authorId // 백엔드 검증을 위해 ID 전송
-                    }) 
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || '게시글 삭제 실패');
-                }
-
-                alert('게시글이 성공적으로 삭제되었습니다.');
-                closePostModal(); // 모달 닫기 (내부에서 loadPosts 호출됨)
-
-            } catch (error) {
-                console.error('게시글 삭제 중 오류:', error);
-                alert('게시글 삭제 중 오류가 발생했습니다: ' + error.message);
-            }
-        }
-        
-
-        // =========================================================
-        // 7. 페이지 로드 시 실행
+        // 6. 페이지 로드 시 실행
         // =========================================================
         updateAuthUI(); // 로그인 상태 확인 및 UI 업데이트
         loadPosts(); // 게시글 목록 로드
