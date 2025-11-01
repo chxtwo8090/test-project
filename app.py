@@ -313,52 +313,33 @@ def create_comment(post_id):
 # =======================================================
 @app.route('/api/finance/summary', methods=['GET'])
 def get_finance_summary():
-    """네이버 실시간 지수 API를 호출하여 KOSPI, KOSDAQ 정보를 반환합니다."""
+    """인터넷 연결 없이 가짜(Mock) 데이터를 반환합니다."""
     
-    # 💡 [핵심] requests 라이브러리가 필요합니다. (requirements.txt에 requests가 있어야 함)
-    import requests
+    # 💡 [핵심 수정] requests.get 호출 코드를 제거했습니다.
+    # 이 코드는 파이썬 코드 자체가 네트워크 요청을 보내지 않습니다.
     
-    url = "https://api.finance.beta.naver.com/naverpay/api/public/realtime/domestic/stock/major"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-
     try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status() 
-        
-        data = response.json()
-        
-        kospi_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSPI')
-        kosdaq_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSDAQ')
-
-        kospi_change_sign = kospi_data.get('fluctuationsSign', '')
-        kospi_change_val = kospi_data.get('fluctuations', '0')
-        kospi_change_ratio = kospi_data.get('fluctuationsRatio', '0')
-        
-        kosdaq_change_sign = kosdaq_data.get('fluctuationsSign', '')
-        kosdaq_change_val = kosdaq_data.get('fluctuations', '0')
-        kosdaq_change_ratio = kosdaq_data.get('fluctuationsRatio', '0')
-
-        return jsonify({
+        mock_data = {
             "kospi": {
-                "value": kospi_data.get('closePrice'),
-                "change": f"{kospi_change_sign}{kospi_change_val} ({kospi_change_ratio}%)"
+                "value": "2,750.00",
+                "change": "+15.50 (+0.57%)"
             },
             "kosdaq": {
-                "value": kosdaq_data.get('closePrice'),
-                "change": f"{kosdaq_change_sign}{kosdaq_change_val} ({kosdaq_change_ratio}%)"
+                "value": "900.00",
+                "change": "-1.20 (-0.13%)"
             }
-        }), 200
+        }
+        
+        # 💡 HTML 응답 대신 JSON 응답을 반환하도록 합니다.
+        return jsonify(mock_data), 200
 
     except Exception as e:
         error_detail = str(e)
-        print(f"금융 정보 API 호출 오류: {error_detail}")
+        print(f"Mock 데이터 생성 오류: {error_detail}")
         
-        # ⚠️ DNS 오류가 여전히 발생하는지 확인하기 위해 상세 에러 반환
         return jsonify({
-            "error": "실시간 금융 정보를 가져오는 데 실패했습니다. (네트워크 확인 필요)", 
-            "detail": error_detail 
+            "error": "Mock 데이터를 생성하는 데 실패했습니다.", 
+            "detail": error_detail
         }), 400
 
 # =======================================================
