@@ -2,6 +2,8 @@ import os
 import pymysql
 import bcrypt
 import jwt
+import requests
+from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify
@@ -368,9 +370,59 @@ def create_comment(post_id):
     finally:
         if conn: conn.close()
 
+# =======================================================
+# 11. [신규] 금융 정보 API (크롤링)
+# =======================================================
+@app.route('/api/finance/summary', methods=['GET'])
+def get_finance_summary():
+    """네이버 증시에서 KOSPI, KOSDAQ 지수를 크롤링합니다."""
+    
+    # 크롤링할 URL과 봇(Bot) 차단을 피하기 위한 User-Agent 헤더
+    url = "https://finance.naver.com/"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status() # 200 OK가 아니면 에러 발생
+
+        # BeautifulSoup을 사용해 HTML 파싱
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # CSS 선택자(Selector)로 KOSPI, KOSDAQ 지수와 변동값을 찾습니다.
+        # (참고: 이 선택자는 네이버 웹사이트 구조 변경 시 달라질 수 있습니다.)
+        kospi_val = soup.select_one('#KOSPI_now').text
+        kospi_change = soup.select_one('#KOSPI_change').text.strip() # 공백 제거
+        
+        kosdaq_val = soup.select_one('#KOSDAQ_now').text
+        kosdaq_change = soup.select_one('#KOSDAQ_change').text.strip() # 공백 제거
+
+        # 찾은 데이터를 JSON으로 반환
+        return jsonify({
+            "kospi": {
+                "value": kospi_val,
+                "change": kospi_change
+            },
+            "kosdaq": {
+                "value": kosdaq_val,
+                "change": kosdaq_change
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"금융 정보 크롤링 오류: {e}")
+        return jsonify({"error": "금융 정보를 가져오는 데 실패했습니다."}), 500
 
 # =======================================================
 # 11. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=True)
+
+# =======================================================
+# 12. Gunicorn 또는 로컬 테스트용 실행
+# =======================================================
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80, debug=True)
+    

@@ -13,3 +13,5 @@ openai
 bcrypt
 PyJWT
 Flask-CORS
+requests
+beautifulsoup4
