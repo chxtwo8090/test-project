@@ -3,7 +3,7 @@ import pymysql
 import bcrypt
 import jwt
 import requests
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup ⬅️ 더 이상 필요하지 않습니다.
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify
@@ -69,7 +69,7 @@ def token_required(f):
     return decorated
 
 # =======================================================
-# 5. 기본 엔드포인트 (ALB Health Check용)
+# 5. 기본 엔드포인트 (ALB Health Check용) (변경 없음)
 # =======================================================
 @app.route('/', methods=['GET'])
 def home():
@@ -312,58 +312,52 @@ def create_comment(post_id):
         if conn: conn.close()
 
 # =======================================================
-# 11. [수정됨] 금융 정보 API (크롤링)
+# 11. [수정됨] 금융 정보 API (OpenAPI 사용)
 # =======================================================
 @app.route('/api/finance/summary', methods=['GET'])
 def get_finance_summary():
-    """네이버 증시에서 KOSPI, KOSDAQ 지수를 크롤링합니다."""
+    """네이버 실시간 지수 API를 호출하여 KOSPI, KOSDAQ 정보를 반환합니다."""
     
-    url = "https://finance.naver.com/"
+    # 네이버에서 비공식적으로 제공하는 실시간 지수 API
+    url = "https://api.finance.beta.naver.com/naverpay/api/public/realtime/domestic/stock/major"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
 
     try:
         response = requests.get(url, headers=headers)
-        response.raise_for_status() 
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # [안전성 수정] .text를 호출하기 전에 요소가 None이 아닌지 확인
-        kospi_element = soup.select_one('#KOSPI_now')
-        kospi_val = kospi_element.text if kospi_element else 'N/A'
+        response.raise_for_status() # 200 OK가 아니면 에러 발생
         
-        kospi_change_element = soup.select_one('#KOSPI_change')
-        kospi_change = kospi_change_element.text.strip() if kospi_change_element else 'N/A'
+        data = response.json()
         
-        kosdaq_element = soup.select_one('#KOSDAQ_now')
-        kosdaq_val = kosdaq_element.text if kosdaq_element else 'N/A'
-        
-        kosdaq_change_element = soup.select_one('#KOSDAQ_change')
-        kosdaq_change = kosdaq_change_element.text.strip() if kosdaq_change_element else 'N/A'
-        
-        # 'N/A'가 하나라도 포함되면 크롤링 실패로 간주 (선택적)
-        if 'N/A' in [kospi_val, kospi_change, kosdaq_val, kosdaq_change]:
-            raise Exception("CSS selector changed or element not found")
+        # API 응답에서 KOSPI, KOSDAQ 정보만 추출
+        # (API 응답 구조가 'KOSPI', 'KOSDAQ' 키를 포함한다고 가정)
+        kospi_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSPI')
+        kosdaq_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSDAQ')
 
         return jsonify({
-            "kospi": { "value": kospi_val, "change": kospi_change },
-            "kosdaq": { "value": kosdaq_val, "change": kosdaq_change }
+            "kospi": {
+                "value": kospi_data.get('closePrice'),
+                "change": f"{kospi_data.get('fluctuationsSign')}{kospi_data.get('fluctuations')} ({kospi_data.get('fluctuationsRatio')}%)"
+            },
+            "kosdaq": {
+                "value": kosdaq_data.get('closePrice'),
+                "change": f"{kosdaq_data.get('fluctuationsSign')}{kosdaq_data.get('fluctuations')} ({kosdaq_data.get('fluctuationsRatio')}%)"
+            }
         }), 200
 
     except Exception as e:
-        # 💡 [핵심 수정] 500 대신 400을 반환하고, 에러 상세 내용을 'detail' 필드에 담아 전송
+        # OpenAPI 호출 실패 또는 데이터 파싱 실패 시
         error_detail = str(e)
-        print(f"금융 정보 크롤링 오류: {error_detail}")
+        print(f"금융 정보 API 호출 오류: {error_detail}")
         
         return jsonify({
             "error": "금융 정보를 가져오는 데 실패했습니다.", 
-            "detail": error_detail # ⬅️ 브라우저에서 이 값을 확인할 수 있습니다.
+            "detail": error_detail
         }), 400
 
 # =======================================================
-# 12. Gunicorn 또는 로컬 테스트용 실행
+# 12. Gunicorn 또는 로컬 테스트용 실행 (중복 제거됨)
 # =======================================================
 if __name__ == '__main__':
-    # ❌ [오류 수정] 중복되었던 이 블록을 하나 제거했습니다.
     app.run(host='0.0.0.0', port=80, debug=True)
