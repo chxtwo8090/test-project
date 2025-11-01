@@ -12,8 +12,7 @@ from flask_cors import CORS
 # =======================================================
 app = Flask(__name__)
 # 모든 도메인에서의 접속을 허용합니다. (CORS 설정)
-CORS(app) 
-
+CORS(app, resources={r"/*": {"origins": "http://chxtwo-git.s3-website.ap-northeast-2.amazonaws.com"}})
 # JWT 토큰 생성을 위한 비밀 키 (배포 환경에서 반드시 환경 변수로 설정되어야 합니다.)
 # 현재는 임시 키를 사용합니다. 실제 배포 시에는 GitHub Secrets에 등록하세요.
 SECRET_KEY = os.environ.get("SECRET_KEY", "your_strong_secret_key_that_should_be_in_secrets")
