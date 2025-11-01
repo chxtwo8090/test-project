@@ -110,6 +110,20 @@
         .news-list li:last-child {
             border-bottom: none;
         }
+        /* LLM 챗봇 스타일 */
+        #llm-chat-container {
+            border-top: 1px solid #eee;
+            margin-top: 15px;
+            padding-top: 15px;
+        }
+        .chat-response {
+            background-color: #e6f7ff;
+            border-left: 3px solid #008850;
+            padding: 10px;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -157,8 +171,22 @@
                     <li><a href="#">LLM 기반 종목 분석: '삼성전자', 매수 의견 지배적 (미구현)</a></li>
                     <li><a href="#">[단독] 신규 AI 칩 출시 임박 소식에 관련주 급등</a></li>
                 </ul>
+                
+                <div id="llm-chat-container">
+                    <h4 style="font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #008850;">🤖 LLM 분석가에게 질문하기</h4>
+                    <div id="chat-response-box" class="chat-response hidden"></div>
+
+                    <form id="llm-chat-form" style="display: flex; gap: 10px;">
+                        <input type="text" id="chat-input" placeholder="예: 삼성전자 전망을 알려줘" 
+                               style="flex-grow: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" required>
+                        <button type="submit" 
+                                style="padding: 8px 15px; background-color: #008850; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer;">
+                            분석 요청
+                        </button>
+                    </form>
+                </div>
             </div>
-            
+
             </div>
 
         <div class="side-content">
@@ -168,44 +196,75 @@
     
 </body>
 <script>
-        // 💡 [수정] API 주소를 실제 백엔드(ALB) 주소로 설정
+        // 💡 API 주소를 실제 백엔드(ALB) 주소로 설정
         const API_URL = 'http://api.chxtwo.kro.kr'; 
         
         /**
-         * 💡 [추가] 금융 요약 정보를 API에서 가져와 화면에 업데이트하는 함수
+         * 💡 [추가] LLM 챗봇 API 호출 및 응답 처리 함수
+         */
+        document.getElementById('llm-chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const inputElement = document.getElementById('chat-input');
+            const responseBox = document.getElementById('chat-response-box');
+            const prompt = inputElement.value;
+            
+            responseBox.classList.remove('hidden');
+            responseBox.innerHTML = '분석 요청 중입니다...';
+
+            try {
+                const response = await fetch(`${API_URL}/api/llm/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'LLM 분석에 실패했습니다.');
+                }
+                
+                // 성공 응답 표시
+                responseBox.innerHTML = `**LLM 응답:** ${data.response}`;
+                inputElement.value = ''; // 입력창 초기화
+
+            } catch (error) {
+                console.error("LLM 호출 오류:", error);
+                responseBox.innerHTML = `<span style="color:red;">❌ 오류: ${error.message}</span>`;
+            }
+        });
+
+
+        /**
+         * 💡 [기존] 금융 요약 정보를 API에서 가져와 화면에 업데이트하는 함수
          */
         async function loadFinanceData() {
             try {
-                // Flask 백엔드에서 준비된 증시 정보 API 호출
                 const response = await fetch(`${API_URL}/api/finance/summary`);
                 
                 if (!response.ok) {
-                    // API가 400, 500 등 에러를 반환했을 때
                     const errorData = await response.json();
                     throw new Error(errorData.detail || errorData.error || '금융 데이터 로드 실패');
                 }
                 
                 const data = await response.json();
                 
-                // 1. KOSPI 지수 업데이트
+                // KOSPI 지수 업데이트
                 updateIndex('kospi-index', data.kospi);
                 
-                // 2. KOSDAQ 지수 업데이트
+                // KOSDAQ 지수 업데이트
                 updateIndex('kosdaq-index', data.kosdaq);
                 
-                // 3. (다음 단계) 뉴스 목록 업데이트
-                // updateNewsList(data.news);
-
             } catch (error) {
                 console.error("금융 데이터 로드 오류:", error);
                 // 오류 메시지 표시
-                document.getElementById('kospi-index').innerHTML = '<p style="color:red; text-align:center;">KOSPI 로드 실패</p>';
-                document.getElementById('kosdaq-index').innerHTML = '<p style="color:red; text-align:center;">KOSDAQ 로드 실패</p>';
+                document.getElementById('kospi-index').querySelector('.value').textContent = 'Error';
+                document.getElementById('kosdaq-index').querySelector('.value').textContent = 'Error';
             }
         }
 
         /**
-         * 💡 [추가] 지수 DOM 요소를 업데이트하는 헬퍼 함수
+         * 💡 [기존] 지수 DOM 요소를 업데이트하는 헬퍼 함수
          */
         function updateIndex(elementId, indexData) {
             const targetItem = document.getElementById(elementId);
@@ -217,11 +276,10 @@
                 valueElement.textContent = indexData.value;
                 changeElement.textContent = indexData.change;
 
-                // 등락에 따른 색상 적용 (기본값은 빨간색)
                 let color = '#d84a4a'; // 하락 (빨간색)
                 if (indexData.change.includes('+')) {
                     color = '#008850'; // 상승 (녹색)
-                } else if (!indexData.change.includes('-')) {
+                } else if (!indexData.change.includes('+') && !indexData.change.includes('-')) {
                     color = '#1c1c1c'; // 보합 (검정)
                 }
                 
