@@ -2,21 +2,24 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: flask-app-ingress
-
+  # [수정]
+  # 'kubernetes.io/ingress.class: alb' 주석을 삭제하고,
+  # 대신 아래 'spec.ingressClassName' 필드를 사용합니다.
   annotations:
-     alb.ingress.kubernetes.io/scheme: internet-facing
-     alb.ingress.kubernetes.io/target-type: ip
+    # ingress.class 주석은 제거됨
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
 spec:
+  # [수정] Ingress 컨트롤러의 이름을 'alb'로 명시적으로 지정
   ingressClassName: alb
+  
   rules:
-  # 외부에서 들어오는 모든 HTTP 요청(경로 '/')을...
-  - http:
+   - http:
       paths:
       - path: /
         pathType: Prefix
         backend:
-          # ...'flask-app-service'의 80번 포트로 전달합니다.
-          service:
+           service:
             name: flask-app-service
             port:
               number: 80
