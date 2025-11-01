@@ -412,6 +412,8 @@ def get_finance_summary():
 
     except Exception as e:
         print(f"금융 정보 크롤링 오류: {e}")
+        error_detail = str(e)
+        print(f"금융 정보 크롤링 오류: {error_detail}")
         return jsonify({"error": "금융 정보를 가져오는 데 실패했습니다."}), 500
 
 # =======================================================
