@@ -20,7 +20,7 @@ data "aws_iam_policy_document" "alb_assume_role_policy" {
     principals {
       type        = "Federated"
       # EKS 모듈(v19)이 자동으로 생성한 OIDC 공급자 ARN을 참조합니다.
-      identifiers = [module.eks.oidc_provider_arn]
+      identifiers = ["arn:aws:iam::798874239435:oidc-provider/oidc.eks.ap-northeast-2.amazonaws.com/id/C1DAF7C4C472B1AEE2D33CD26C9E13AB"]
     }
     
     # [중요]
@@ -28,7 +28,7 @@ data "aws_iam_policy_document" "alb_assume_role_policy" {
     # ServiceAccount만 이 역할을 사용할 수 있도록 제한합니다.
     condition {
       test     = "StringEquals"
-      variable = "${module.eks.oidc_provider_arn}:sub"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
       values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller"]
     }
   }
