@@ -16,6 +16,6 @@ spec:
       - name: flask-app-container
         # [중요] 2번에서 확인한 ECR 주소를 여기에 넣으세요.
         # 맨 뒤의 ':latest'는 GitHub Actions가 만든 태그(commit hash)로 바꿔야 합니다.
-        image: 798874239435.dkr.ecr.ap-northeast-2.amazonaws.com/project-cluster-flask-app:c31e57204a06d64d26f6aff0c0291ef4f50db2e7
+        image: 798874239435.dkr.ecr.ap-northeast-2.amazonaws.com/project-cluster-flask-app:latest
         ports:
         - containerPort: 8000 # Dockerfile에서 Gunicorn이 실행되는 포트
