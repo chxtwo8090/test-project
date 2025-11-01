@@ -12,3 +12,7 @@ output "ecr_repository_url" {
   description = "Flask 앱 이미지를 푸시할 ECR 주소"
   value       = aws_ecr_repository.flask_app.repository_url
 }
+output "alb_controller_role_arn" {
+  description = "AWS Load Balancer Controller가 사용할 IAM Role의 ARN"
+  value       = aws_iam_role.alb_controller_role.arn
+}
