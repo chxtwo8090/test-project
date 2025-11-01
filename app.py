@@ -116,13 +116,61 @@ def register_user():
 
 
 # =======================================================
-# 6. 로그인 API (/login) - 🚨 다음 단계에서 완성할 예정입니다.
+# 6. [완성] 로그인 API (/login) 
 # =======================================================
 @app.route('/login', methods=['POST'])
 def login_user():
-    # 이 부분은 다음 단계에서 완성합니다.
-    return jsonify({"message": "로그인 기능은 아직 구현되지 않았습니다."}), 501
+    """로그인 요청을 처리하고, 인증 성공 시 JWT 토큰을 발급합니다."""
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
 
+    if not all([username, password]):
+        return jsonify({"message": "아이디와 비밀번호를 입력해주세요."}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"message": "데이터베이스 연결에 실패했습니다."}), 500
+
+    try:
+        with conn.cursor() as cursor:
+            # 1. DB에서 사용자 정보 조회
+            cursor.execute("SELECT user_id, nickname, password_hash FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+
+            if not user:
+                # 사용자가 없는 경우: 아이디 또는 비밀번호가 틀렸다는 일반적인 메시지 반환
+                return jsonify({"message": "아이디 또는 비밀번호를 잘못 입력했습니다."}), 401
+
+            # 2. 비밀번호 일치 확인 (bcrypt 해시 비교)
+            # 입력된 비밀번호를 바이트로 변환하여 DB의 해시와 비교
+            if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+                return jsonify({"message": "아이디 또는 비밀번호를 잘못 입력했습니다."}), 401
+
+            # 3. 인증 성공: JWT 토큰 생성
+            # 토큰에 사용자 고유 정보(user_id, nickname)와 만료 시간(exp)을 담습니다.
+            payload = {
+                'user_id': user['user_id'],
+                'nickname': user['nickname'],
+                'exp': datetime.utcnow() + timedelta(hours=24) # 토큰 만료 시간: 24시간 후
+            }
+            # SECRET_KEY를 사용하여 토큰을 인코딩 (서명)
+            token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+
+            # 4. 클라이언트에 토큰 및 사용자 정보 반환
+            return jsonify({
+                "message": "로그인 성공",
+                "token": token,
+                "user_id": user['user_id'],
+                "nickname": user['nickname']
+            }), 200
+
+    except Exception as e:
+        print(f"로그인 중 서버 오류 발생: {e}")
+        return jsonify({"message": "로그인 중 서버 오류가 발생했습니다."}), 500
+    finally:
+        if conn:
+            conn.close()
 
 # =======================================================
 # 7. Gunicorn 또는 로컬 테스트용 실행

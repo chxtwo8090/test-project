@@ -11,4 +11,4 @@ uuid
 PyMySQL
 openai
 bcrypt
-jwt
+PyJWT
