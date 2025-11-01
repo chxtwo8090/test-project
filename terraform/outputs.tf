@@ -16,3 +16,4 @@ output "alb_controller_role_arn" {
   description = "AWS Load Balancer Controller가 사용할 IAM Role의 ARN"
   value       = aws_iam_role.alb_controller_role.arn
 }
+#798874239435.dkr.ecr.ap-northeast-2.amazonaws.com/project-cluster-flask-app
