@@ -15,6 +15,7 @@ module "eks" {
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = false
   # --------------------------------------------------
+  enable_iam_oidc_provider = true
 
   # [핵심 - kubectl 인증 문제 해결]
   # 1. Terraform이 aws-auth ConfigMap을 직접 관리하도록 설정
