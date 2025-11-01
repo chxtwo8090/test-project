@@ -89,12 +89,12 @@
         .index-item .value {
             font-size: 32px;
             font-weight: bold;
-            color: #d84a4a; /* 하락 가정 */
+            color: #d84a4a; /* 기본 하락 (빨간색) */
             margin-top: 5px;
         }
         .index-item .change {
             font-size: 16px;
-            color: #d84a4a; /* 하락 가정 */
+            color: #d84a4a; /* 기본 하락 (빨간색) */
         }
 
         /* 뉴스 목록 스타일 */
@@ -122,7 +122,7 @@
                 <a href="#">해외증시</a>
                 <a href="#">시장분석</a>
                 <a href="#">금융뉴스</a>
-                <a href="#">커뮤니티</a>
+                <a href="index.html">커뮤니티</a>
             </nav>
         </div>
     </header>
@@ -132,15 +132,15 @@
             <div class="card">
                 <h3>주요 증시</h3>
                 <div class="index-card">
-                    <div class="index-item">
+                    <div class="index-item" id="kospi-index">
                         <p>KOSPI</p>
-                        <p class="value">2,500.00</p>
-                        <p class="change">-10.50 (-0.42%)</p>
+                        <p class="value">Loading...</p>
+                        <p class="change">Loading...</p>
                     </div>
-                    <div class="index-item">
+                    <div class="index-item" id="kosdaq-index">
                         <p>KOSDAQ</p>
-                        <p class="value" style="color: #008850;">850.50</p>
-                        <p class="change" style="color: #008850;">+5.25 (+0.62%)</p>
+                        <p class="value">Loading...</p>
+                        <p class="change">Loading...</p>
                     </div>
                     <div class="index-item">
                         <p>환율(USD/KRW)</p>
@@ -152,126 +152,76 @@
 
             <div class="card">
                 <h3>금융 뉴스 및 분석 결과</h3>
-                <ul class="news-list">
+                <ul class="news-list" id="news-list-ul">
                     <li><a href="#">[속보] 파월 의장, 인플레이션 둔화 발언... 뉴욕 증시 상승 마감</a></li>
-                    <li><a href="#">LLM 기반 종목 분석: '삼성전자', 매수 의견 지배적</a></li>
-                    <li><a href="#">유럽 증시, 에너지주 강세에 힘입어 일제히 오름세</a></li>
+                    <li><a href="#">LLM 기반 종목 분석: '삼성전자', 매수 의견 지배적 (미구현)</a></li>
                     <li><a href="#">[단독] 신규 AI 칩 출시 임박 소식에 관련주 급등</a></li>
-                    <li><a href="#">오늘의 외신 헤드라인: 글로벌 경기 침체 우려 완화</a></li>
                 </ul>
             </div>
-
-            <div class="card">
-                <h3>주요 종목</h3>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background-color: #f5f5f5;">
-                            <th style="padding: 8px; text-align: left;">종목명</th>
-                            <th style="padding: 8px; text-align: right;">현재가</th>
-                            <th style="padding: 8px; text-align: right;">등락률</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px dotted #eee;">삼성전자</td>
-                            <td style="padding: 8px; text-align: right;">70,000</td>
-                            <td style="padding: 8px; text-align: right; color: #d84a4a;">-1.50%</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px dotted #eee;">SK하이닉스</td>
-                            <td style="padding: 8px; text-align: right;">120,000</td>
-                            <td style="padding: 8px; text-align: right; color: #008850;">+2.10%</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px;">네이버</td>
-                            <td style="padding: 8px; text-align: right;">250,000</td>
-                            <td style="padding: 8px; text-align: right; color: #d84a4a;">-0.80%</td>
-                        </tr>
-                    </tbody>
-                </table>
+            
             </div>
-
-        </div>
 
         <div class="side-content">
-            <div class="card">
-                <h3>나의 관심 종목</h3>
-                <ul class="news-list">
-                    <li><a href="#">OO전자 (+3.5%)</a></li>
-                    <li><a href="#">XX바이오 (-1.2%)</a></li>
-                    <li><a href="#">YY화학 (보합)</a></li>
-                </ul>
             </div>
-            
-            <div class="card">
-                <h3>인기 검색 순위</h3>
-                <ol style="padding-left: 20px;">
-                    <li>카카오</li>
-                    <li>POSCO</li>
-                    <li>LG에너지솔루션</li>
-                </ol>
-            </div>
-            
-        </div>
     </div>
 
     
 </body>
 <script>
-        // 🚨 [주의] 이 API_URL 변수는 실제 로드 밸런서 DNS 주소로 변경해야 합니다.
-        // 현재는 Flask 개발 서버 주소로 가정합니다.
+        // 💡 [수정] API 주소를 실제 백엔드(ALB) 주소로 설정
         const API_URL = 'http://api.chxtwo.kro.kr'; 
         
+        /**
+         * 💡 [추가] 금융 요약 정보를 API에서 가져와 화면에 업데이트하는 함수
+         */
         async function loadFinanceData() {
             try {
                 // Flask 백엔드에서 준비된 증시 정보 API 호출
-                const response = await fetch(`${API_URL}/api/finance`);
-                if (!response.ok) throw new Error('금융 데이터 로드 실패');
+                const response = await fetch(`${API_URL}/api/finance/summary`);
+                
+                if (!response.ok) {
+                    // API가 400, 500 등 에러를 반환했을 때
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || errorData.error || '금융 데이터 로드 실패');
+                }
                 
                 const data = await response.json();
                 
-                // 1. 주요 증시 지수 업데이트
-                updateIndex('KOSPI', data.KOSPI);
-                updateIndex('KOSDAQ', data.KOSDAQ);
-                updateIndex('환율(USD/KRW)', data.USD_KRW);
+                // 1. KOSPI 지수 업데이트
+                updateIndex('kospi-index', data.kospi);
                 
-                // 2. 뉴스 목록 업데이트
-                updateNewsList(data.news);
+                // 2. KOSDAQ 지수 업데이트
+                updateIndex('kosdaq-index', data.kosdaq);
                 
-                // 3. 주요 종목 테이블 업데이트
-                updateTopStocks(data.top_stocks);
+                // 3. (다음 단계) 뉴스 목록 업데이트
+                // updateNewsList(data.news);
 
             } catch (error) {
                 console.error("금융 데이터 로드 오류:", error);
-                // 오류 메시지 표시 등의 처리
-                document.querySelector('.index-card').innerHTML = '<p style="color:red; text-align:center;">데이터 로드에 실패했습니다. Flask 서버를 확인하세요.</p>';
+                // 오류 메시지 표시
+                document.getElementById('kospi-index').innerHTML = '<p style="color:red; text-align:center;">KOSPI 로드 실패</p>';
+                document.getElementById('kosdaq-index').innerHTML = '<p style="color:red; text-align:center;">KOSDAQ 로드 실패</p>';
             }
         }
 
-        // 지수 항목 업데이트 함수
-        function updateIndex(name, indexData) {
-            const indexItems = document.querySelectorAll('.index-item');
-            let targetItem = null;
-            
-            // 이름으로 해당 DOM 요소를 찾음
-            indexItems.forEach(item => {
-                if (item.querySelector('p').textContent.includes(name.split('(')[0].trim())) {
-                    targetItem = item;
-                }
-            });
+        /**
+         * 💡 [추가] 지수 DOM 요소를 업데이트하는 헬퍼 함수
+         */
+        function updateIndex(elementId, indexData) {
+            const targetItem = document.getElementById(elementId);
 
-            if (targetItem) {
+            if (targetItem && indexData) {
                 const valueElement = targetItem.querySelector('.value');
                 const changeElement = targetItem.querySelector('.change');
 
                 valueElement.textContent = indexData.value;
                 changeElement.textContent = indexData.change;
 
-                // 등락에 따른 색상 적용 (기존 스타일 유지하며 업데이트)
-                let color = '#d84a4a'; // 기본 하락 (빨간색)
-                if (indexData.status === 'up') {
+                // 등락에 따른 색상 적용 (기본값은 빨간색)
+                let color = '#d84a4a'; // 하락 (빨간색)
+                if (indexData.change.includes('+')) {
                     color = '#008850'; // 상승 (녹색)
-                } else if (indexData.status === 'flat') {
+                } else if (!indexData.change.includes('-')) {
                     color = '#1c1c1c'; // 보합 (검정)
                 }
                 
@@ -279,47 +229,6 @@
                 changeElement.style.color = color;
             }
         }
-
-        // 뉴스 목록 업데이트 함수
-        function updateNewsList(news) {
-            const newsListUl = document.querySelector('.news-list');
-            // '금융 뉴스 및 분석 결과' 카드에 해당하는 ul만 타겟팅 (CSS 구조상)
-            if (newsListUl) { 
-                newsListUl.innerHTML = '';
-                news.forEach(item => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<a href="#">${item}</a>`;
-                    newsListUl.appendChild(li);
-                });
-            }
-        }
-
-        // 주요 종목 테이블 업데이트 함수
-        function updateTopStocks(stocks) {
-            const tableBody = document.querySelector('.card:nth-child(3) tbody');
-            if (tableBody) {
-                tableBody.innerHTML = '';
-                stocks.forEach((stock, index) => {
-                    // 등락률에 따른 색상 결정
-                    let color = '#1c1c1c'; // 기본 검정
-                    if (stock.rate.includes('+')) {
-                        color = '#008850'; // 상승 (녹색)
-                    } else if (stock.rate.includes('-')) {
-                        color = '#d84a4a'; // 하락 (빨간색)
-                    }
-
-                    const row = `
-                        <tr>
-                            <td style="padding: 8px; ${index < stocks.length - 1 ? 'border-bottom: 1px dotted #eee;' : ''}">${stock.name}</td>
-                            <td style="padding: 8px; text-align: right;">${stock.price}</td>
-                            <td style="padding: 8px; text-align: right; color: ${color};">${stock.rate}</td>
-                        </tr>
-                    `;
-                    tableBody.innerHTML += row;
-                });
-            }
-        }
-
 
         // 페이지 로드 시 데이터 로드 시작
         loadFinanceData(); 
