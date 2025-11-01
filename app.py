@@ -344,7 +344,6 @@ def get_finance_summary():
         
         # 'N/A'가 하나라도 포함되면 크롤링 실패로 간주 (선택적)
         if 'N/A' in [kospi_val, kospi_change, kosdaq_val, kosdaq_change]:
-            # 네이버 HTML 구조가 변경되었을 가능성이 높음
             raise Exception("CSS selector changed or element not found")
 
         return jsonify({
@@ -366,4 +365,5 @@ def get_finance_summary():
 # 12. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
 if __name__ == '__main__':
+    # ❌ [오류 수정] 중복되었던 이 블록을 하나 제거했습니다.
     app.run(host='0.0.0.0', port=80, debug=True)
