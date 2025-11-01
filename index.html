@@ -52,11 +52,11 @@
         <header class="flex justify-between items-center mb-10 border-b pb-4">
             <h1 class="text-3xl font-extrabold text-indigo-600">커뮤니티 게시판</h1>
             <nav id="auth-ui" class="space-x-4">
-                </nav>
+            </nav>
         </header>
 
         <div class="mb-6 text-right">
-            <button id="create-post-btn" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150">
+            <button id="create-post-btn" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150" style="display: none;">
                 게시글 작성
             </button>
         </div>
@@ -93,11 +93,12 @@
                 </div>
             </div>
 
-            <div class="mb-6 p-4 bg-gray-50 rounded-lg whitespace-pre-wrap flex-grow overflow-y-auto">
+            <div class="mb-6 p-4 bg-gray-50 rounded-lg whitespace-pre-wrap flex-grow overflow-y-auto max-h-[40vh]">
                 <p id="modal-post-content" class="text-gray-700"></p>
             </div>
             
-            <div id="post-modal-actions" class="mb-4"></div>
+            <div id="post-modal-actions" class="mb-4 text-right">
+                </div>
 
             <h3 class="text-xl font-semibold mb-3 border-b pb-1">댓글</h3>
             <div id="comments-list" class="space-y-3 max-h-48 overflow-y-auto mb-4">
@@ -170,38 +171,36 @@
     </div>
 
     <script>
-        // API 주소 설정 (도메인 주소로 통일)
+        // API 주소 설정
         const API_URL = 'http://api.chxtwo.kro.kr'; 
 
         const postModal = document.getElementById('post-modal');
         const createPostModal = document.getElementById('create-post-modal');
-        let currentPostId = null; // 현재 상세 보기 중인 게시글 ID
+        const editPostModal = document.getElementById('edit-post-modal');
+        let currentPostId = null; 
 
         // =========================================================
         // 0. 유틸리티 함수
         // =========================================================
 
-        // 로컬 스토리지에서 로그인된 사용자 ID를 가져옵니다 (INT 타입으로 변환)
         function getUserId() {
             const id = localStorage.getItem('loggedInUserId');
             return id ? parseInt(id, 10) : null;
         }
 
-        // 🔑 [추가] JWT 토큰을 가져오는 함수
         function getAuthToken() {
             return localStorage.getItem('authToken');
         }
 
-        // 로그인 상태에 따라 UI를 업데이트합니다.
         function updateAuthUI() {
             const authUI = document.getElementById('auth-ui');
             const nickname = localStorage.getItem('loggedInNickname');
             const loggedInUserId = getUserId();
             const commentTextarea = document.getElementById('comment-content');
             const submitCommentBtn = document.getElementById('submit-comment-btn');
+            const createPostBtn = document.getElementById('create-post-btn');
 
             if (loggedInUserId && nickname) {
-                // 로그인 상태: 닉네임과 로그아웃 버튼 표시
                 authUI.innerHTML = `
                     <span class="text-sm font-medium text-gray-700">${nickname}님 환영합니다!</span>
                     <button id="logout-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-3 rounded-lg transition duration-150">
@@ -209,33 +208,32 @@
                     </button>
                 `;
                 document.getElementById('logout-btn').addEventListener('click', logout);
-                document.getElementById('create-post-btn').style.display = 'block';
+                createPostBtn.style.display = 'block';
                 commentTextarea.placeholder = '댓글을 작성하세요.';
                 submitCommentBtn.disabled = false;
                 
             } else {
-                // 로그아웃 상태: 로그인 및 회원가입 버튼 표시
                 authUI.innerHTML = `
                     <a href="login.html" class="text-indigo-600 hover:text-indigo-800 font-medium">로그인</a>
                     <a href="register.html" class="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-3 rounded-lg transition duration-150">
                         회원가입
                     </a>
                 `;
-                document.getElementById('create-post-btn').style.display = 'none';
+                createPostBtn.style.display = 'none';
                 commentTextarea.placeholder = '댓글 작성을 위해서는 로그인이 필요합니다.';
                 submitCommentBtn.disabled = true;
             }
         }
 
-        // 로그아웃 처리
         function logout() {
             localStorage.removeItem('authToken');
             localStorage.removeItem('loggedInUserId');
             localStorage.removeItem('loggedInNickname');
             updateAuthUI();
-            loadPosts(); // 로그아웃 후 게시글 목록 새로고침 (작성 버튼 사라짐)
+            loadPosts(); 
             alert('로그아웃 되었습니다.');
         }
+
 
         // =========================================================
         // 1. 게시글 목록 로드 (GET /posts)
@@ -245,14 +243,12 @@
             postsList.innerHTML = ''; 
 
             try {
-                // 🛠️ 수정: 검색어가 있다면 쿼리 파라미터를 추가합니다.
                 const url = searchQuery 
                     ? `${API_URL}/posts?search=${encodeURIComponent(searchQuery)}`
                     : `${API_URL}/posts`;
                     
                 const response = await fetch(url); 
                 if (!response.ok) {
-                    // 서버가 응답했으나 200이 아닌 경우
                     const errorResponse = await response.json();
                     throw new Error(errorResponse.message || '게시글 목록 로드 실패');
                 }
@@ -268,7 +264,6 @@
                     const postElement = document.createElement('div');
                     postElement.className = 'post-item bg-white p-4 rounded-xl shadow-lg border border-gray-200 hover:border-indigo-400 transition duration-300 transform hover:scale-[1.01]';
                     
-                    // 게시글 제목만 표시 
                     postElement.innerHTML = `
                         <h3 class="text-xl font-bold text-gray-800 truncate">${post.title}</h3>
                         
@@ -281,20 +276,76 @@
                         </div>
                     `;
                     
+                    // ✅ 복원: 클릭 시 상세 모달을 열도록 수정 (데이터도 함께 전달)
                     postElement.addEventListener('click', () => {
-                        showPostModal(post.post_id); 
+                        showPostModal(post.post_id, post.title, post.nickname, post.created_at, post.views); 
                     });
 
                     postsList.appendChild(postElement);
                 });
             } catch (error) {
                 console.error("게시글 로드 오류:", error);
-                postsList.innerHTML = `<p class="text-red-500 py-10">게시글 목록을 불러오는 데 실패했습니다. (CORS 또는 서버 오류: ${error.message})</p>`;
+                postsList.innerHTML = `<p class="text-red-500 py-10">게시글 목록을 불러오는 데 실패했습니다. (서버 오류: ${error.message})</p>`;
             }
         }
 
         // =========================================================
-        // 4. 게시글 작성 로직 (POST /posts)
+        // 2. 게시글 상세 보기/닫기 (Modal Handlers)
+        // =========================================================
+
+        document.getElementById('close-post-modal-btn').addEventListener('click', closePostModal);
+        document.getElementById('close-create-modal-btn').addEventListener('click', closeCreateModal);
+        document.getElementById('close-edit-modal-btn').addEventListener('click', closeEditModal);
+
+        // 팝업 닫기 함수들
+        function closePostModal() {
+            postModal.classList.remove('show-modal');
+            currentPostId = null;
+        }
+        function closeCreateModal() {
+            createPostModal.classList.remove('show-modal');
+            document.getElementById('post-title').value = '';
+            document.getElementById('post-content').value = '';
+        }
+        function closeEditModal() {
+            editPostModal.classList.remove('show-modal');
+        }
+
+
+        // ✅ 복원: 상세 모달 열기 함수 (현재는 내용 없이 기본 정보만 표시)
+        function showPostModal(postId, title, nickname, created_at, views) {
+            currentPostId = postId;
+            
+            // 1. 상세 정보를 모달에 채워 넣습니다.
+            document.getElementById('modal-post-title').textContent = title;
+            document.getElementById('modal-post-author').textContent = `작성자: ${nickname}`;
+            document.getElementById('modal-post-views').textContent = `조회수: ${views || 0}`;
+            document.getElementById('modal-post-date').textContent = `작성일: ${created_at}`;
+
+            // 2. 게시글 내용은 현재 GET /posts에 없으므로, 안내 메시지를 표시합니다.
+            document.getElementById('modal-post-content').innerHTML = `
+                <p class="text-red-500 font-bold mb-2">⚠️ 주의: 게시글 본문 API(GET /posts/id)가 아직 구현되지 않았습니다.</p>
+                <p>다음 단계에서 본문을 가져오는 기능을 추가해야 이 곳에 내용이 표시됩니다.</p>
+            `;
+
+            // 3. 댓글 섹션 및 액션 버튼 초기화 (기능 미구현 안내)
+            document.getElementById('comments-list').innerHTML = `<p class="text-gray-500">댓글 기능은 다음 단계에서 구현됩니다.</p>`;
+            document.getElementById('post-modal-actions').innerHTML = `
+                <button onclick="alert('수정 기능은 다음 단계에서 구현됩니다.')" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                    수정
+                </button>
+                <button onclick="alert('삭제 기능은 다음 단계에서 구현됩니다.')" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                    삭제
+                </button>
+            `;
+            
+            // 4. 모달을 엽니다.
+            postModal.classList.add('show-modal');
+        }
+
+
+        // =========================================================
+        // 3. 게시글 작성 로직 (POST /posts) - JWT 전송 유지
         // =========================================================
         document.getElementById('create-post-btn').addEventListener('click', () => {
             if (!getAuthToken()) {
@@ -305,16 +356,12 @@
             createPostModal.classList.add('show-modal');
         });
 
-        document.getElementById('close-create-modal-btn').addEventListener('click', () => {
-            createPostModal.classList.remove('show-modal');
-        });
-
         document.getElementById('create-post-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const title = document.getElementById('post-title').value;
             const content = document.getElementById('post-content').value;
             
-            // 🔑 [핵심 수정] 로컬 스토리지에서 JWT 토큰을 가져옵니다.
+            // 🔑 JWT 토큰을 가져옵니다.
             const authToken = getAuthToken(); 
 
             if (!authToken) {
@@ -327,20 +374,19 @@
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        // 🔑 [JWT 전송] 토큰을 Authorization 헤더에 Bearer 타입으로 담아 보냅니다.
+                        // 🔑 JWT 전송
                         'Authorization': `Bearer ${authToken}` 
                     },
                     body: JSON.stringify({ title, content })
                 });
 
                 if (!response.ok) {
-                    // 서버 오류 메시지를 받아 처리 (예: 401 Unauthorized, 500 Server Error)
                     const errorResponse = await response.json();
                     throw new Error(errorResponse.message || '게시글 작성 실패');
                 }
 
                 alert('게시글이 성공적으로 작성되었습니다.');
-                createPostModal.classList.remove('show-modal');
+                closeCreateModal(); // 모달 닫기
                 loadPosts(); 
 
             } catch (error) {
@@ -351,10 +397,12 @@
 
 
         // =========================================================
-        // 6. 페이지 로드 시 실행
+        // 4. 페이지 로드 시 실행
         // =========================================================
-        updateAuthUI(); // 로그인 상태 확인 및 UI 업데이트
-        loadPosts(); // 게시글 목록 로드
+        window.onload = function() {
+            updateAuthUI(); 
+            loadPosts(); 
+        };
     </script>
 </body>
 </html>
