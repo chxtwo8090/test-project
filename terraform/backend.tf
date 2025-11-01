@@ -200,3 +200,69 @@ resource "aws_ecs_service" "app" {
   # ALB가 준비된 후 서비스를 시작하도록 보장
   depends_on = [aws_lb_listener.http]
 }
+# ⬇️ [backend.tf 파일 맨 아래에 추가/수정]
+
+# ===============================================
+# 9. RDS 테이블 스키마 자동 생성 (Local-File + Local-Exec)
+# ===============================================
+
+# 9-1. 전체 SQL 스키마 파일을 로컬에 생성합니다. (users, posts, comments 포함)
+resource "local_file" "init_db_schema" {
+  filename = "${path.module}/init_db_schema.sql"
+  content  = <<-EOT
+    -- 1. 사용자 테이블 (회원가입, 닉네임)
+    CREATE TABLE IF NOT EXISTS users (
+        user_id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        nickname VARCHAR(50) NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    
+    -- 2. 게시글 테이블
+    CREATE TABLE IF NOT EXISTS posts (
+        post_id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        views INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    
+    -- 3. 댓글 테이블
+    CREATE TABLE IF NOT EXISTS comments (
+        comment_id INT AUTO_INCREMENT PRIMARY KEY,
+        post_id INT NOT NULL,
+        user_id INT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  EOT
+}
+
+
+# 9-2. RDS 인스턴스에 접속하여 SQL 스크립트를 실행합니다.
+resource "null_resource" "db_schema_setup" {
+
+  # RDS와 SQL 파일 생성이 완료된 후에 실행되도록 의존성 설정
+  depends_on = [aws_db_instance.main, local_file.init_db_schema] 
+  
+  provisioner "local-exec" {
+    # MINGW64 환경에서 Bash 셸을 사용하도록 명시
+    interpreter = ["bash", "-c"] 
+    
+    # 생성된 SQL 파일을 MySQL 클라이언트를 이용해 실행합니다.
+    command = <<-EOT
+      mysql \
+        --host=${aws_db_instance.main.address} \
+        --user=${aws_db_instance.main.username} \
+        --password="${random_password.db_password.result}" \
+        --database=${aws_db_instance.main.db_name} \
+        < ${path.module}/init_db_schema.sql
+    EOT
+  }
+}
