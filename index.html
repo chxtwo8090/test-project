@@ -35,552 +35,368 @@
         }
         .modal-content {
             background-color: #fefefe;
-            padding: 24px;
+            padding: 20px;
             border-radius: 8px;
             width: 90%;
-            max-width: 600px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-            max-height: 90vh;
-            display: flex;
-            flex-direction: column;
+            max-width: 800px;
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <div class="max-w-4xl mx-auto py-10 px-4">
-        
-        <header class="flex justify-between items-center mb-10 border-b pb-4">
-            <h1 class="text-3xl font-extrabold text-indigo-600">커뮤니티 게시판</h1>
-            <nav id="auth-ui" class="space-x-4">
-                </nav>
+    <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-md">
+            <h1 class="text-3xl font-bold text-blue-600">커뮤니티 게시판</h1>
+            <div id="auth-ui" class="space-x-4">
+                <span id="welcome-message" class="text-gray-700 font-medium hidden"></span>
+                <a href="login.html" id="login-link" 
+                   class="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">로그인</a>
+                <button id="logout-button" type="button" 
+                        class="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hidden">로그아웃</button>
+            </div>
         </header>
 
-        <div class="mb-6 text-right">
-            <button id="create-post-btn" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150">
+        <div class="mb-6 flex justify-end">
+            <button id="open-create-modal-button" 
+                    class="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
+                    disabled>
                 게시글 작성
             </button>
         </div>
-        
-        <form id="search-form" class="mb-6 flex space-x-2">
-            <input type="text" id="search-input" placeholder="제목 또는 내용으로 검색..." class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-            <button type="submit" class="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-3 px-6 rounded-lg transition duration-150">
-                검색
-            </button>
-            <button type="button" id="reset-search-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-medium py-3 px-3 rounded-lg transition duration-150">
-                초기화
-            </button>
-        </form>
 
-        <main id="posts-list" class="space-y-4">
-            <p class="text-center text-gray-500">게시글을 로드 중입니다...</p>
-        </main>
-    </div>
-
-    <div id="post-modal" class="modal">
-        <div class="modal-content w-full max-w-3xl">
-            <div class="border-b pb-3 mb-4 flex justify-between items-start">
-                <h2 id="modal-post-title" class="text-2xl font-bold text-gray-900 pr-4"></h2>
-                <button id="close-post-modal-btn" class="text-gray-500 hover:text-gray-900 text-3xl leading-none font-semibold ml-4">
-                    &times;
-                </button>
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">번호</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-6/12">제목</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/12">작성자</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/12">작성일</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">조회</th>
+                    </tr>
+                </thead>
+                <tbody id="posts-table-body" class="bg-white divide-y divide-gray-200">
+                    </tbody>
+            </table>
+            <div id="no-posts-message" class="p-6 text-center text-gray-500 hidden">
+                등록된 게시글이 없습니다.
             </div>
-            
-            <div class="text-sm text-gray-500 flex justify-between items-center mb-4">
-                <span id="modal-post-author" class="text-indigo-600 font-medium"></span>
-                <div class="flex items-center space-x-3">
-                    <span id="modal-post-views" class="text-xs"></span>
-                    <span id="modal-post-date" class="text-xs"></span>
-                </div>
-            </div>
-
-            <div class="mb-6 p-4 bg-gray-50 rounded-lg whitespace-pre-wrap flex-grow overflow-y-auto">
-                <p id="modal-post-content" class="text-gray-700"></p>
-            </div>
-            
-            <div id="post-modal-actions" class="mb-4"></div>
-
-            <h3 class="text-xl font-semibold mb-3 border-b pb-1">댓글</h3>
-            <div id="comments-list" class="space-y-3 max-h-48 overflow-y-auto mb-4">
-                </div>
-
-            <form id="comment-form" class="mt-4 pt-4 border-t border-gray-200">
-                <textarea id="comment-content" rows="3" placeholder="댓글을 작성하려면 로그인하세요." required 
-                          class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
-                <div class="text-right mt-2">
-                    <button type="submit" id="submit-comment-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150" disabled>
-                        댓글 작성
-                    </button>
-                </div>
-            </form>
         </div>
+
     </div>
 
     <div id="create-post-modal" class="modal">
-        <div class="modal-content w-full max-w-2xl">
-            <div class="border-b pb-3 mb-4 flex justify-between items-start">
-                <h2 class="text-2xl font-bold text-gray-900">새 게시글 작성</h2>
-                <button id="close-create-modal-btn" class="text-gray-500 hover:text-gray-900 text-3xl leading-none font-semibold ml-4">
-                    &times;
-                </button>
-            </div>
+        <div class="modal-content">
+            <span class="close-button" onclick="closeCreateModal()">&times;</span>
+            <h3 class="text-2xl font-bold mb-4 text-gray-900">새 게시글 작성</h3>
             
-            <form id="create-post-form" class="space-y-4">
-                <div>
-                    <label for="post-title" class="block text-sm font-medium text-gray-700">제목</label>
-                    <input type="text" id="post-title" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            <form id="create-post-form">
+                <div class="mb-4">
+                    <label for="post-title" class="block text-sm font-medium text-gray-700 mb-1">제목</label>
+                    <input type="text" id="post-title" name="title" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="제목을 입력하세요">
                 </div>
-                <div>
-                    <label for="post-content" class="block text-sm font-medium text-gray-700">내용</label>
-                    <textarea id="post-content" rows="10" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
+                <div class="mb-4">
+                    <label for="post-content" class="block text-sm font-medium text-gray-700 mb-1">내용</label>
+                    <textarea id="post-content" name="content" rows="10" required 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="내용을 입력하세요"></textarea>
                 </div>
-                <div class="text-right pt-2">
-                    <button type="submit" class="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
-                        작성 완료
-                    </button>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeCreateModal()"
+                            class="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">취소</button>
+                    <button type="submit" 
+                            class="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">작성 완료</button>
                 </div>
             </form>
         </div>
     </div>
-    
-    <div id="edit-post-modal" class="modal">
-        <div class="modal-content w-full max-w-2xl">
-            <div class="border-b pb-3 mb-4 flex justify-between items-start">
-                <h2 class="text-2xl font-bold text-gray-900">게시글 수정</h2>
-                <button id="close-edit-modal-btn" class="text-gray-500 hover:text-gray-900 text-3xl leading-none font-semibold ml-4">
-                    &times;
-                </button>
-            </div>
+
+
+    <div id="post-detail-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closePostModal()">&times;</span>
             
-            <form id="edit-post-form" class="space-y-4">
-                <div>
-                    <label for="edit-title" class="block text-sm font-medium text-gray-700">제목</label>
-                    <input type="text" id="edit-title" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            <div id="detail-view">
+                <h3 id="detail-title" class="text-2xl font-bold mb-2 text-gray-900"></h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    작성자: <span id="detail-nickname" class="font-medium"></span> | 
+                    조회수: <span id="detail-views"></span> | 
+                    작성일: <span id="detail-created-at"></span>
+                </p>
+                <div id="detail-content" class="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap text-gray-800 border mb-6"></div>
+                
+                <div id="action-buttons" class="flex justify-end space-x-3 mb-6 hidden">
+                    <button type="button" onclick="openEditView()"
+                            class="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">수정</button>
+                    <button type="button" onclick="deletePost()"
+                            class="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">삭제</button>
                 </div>
-                <div>
-                    <label for="edit-content" class="block text-sm font-medium text-gray-700">내용</label>
-                    <textarea id="edit-content" rows="10" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
+
+                <h4 class="text-xl font-bold mb-3 text-gray-900 border-t pt-4">댓글</h4>
+                <div id="comments-section" class="space-y-4">
+                    <p class="text-gray-500">댓글 기능은 다음 단계에서 구현됩니다.</p>
                 </div>
-                <div class="text-right pt-2">
-                    <button type="submit" class="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
-                        수정 완료
-                    </button>
+            </div>
+
+            <form id="edit-view" class="hidden">
+                <h3 class="text-2xl font-bold mb-4 text-gray-900">게시글 수정</h3>
+                <div class="mb-4">
+                    <label for="edit-title" class="block text-sm font-medium text-gray-700 mb-1">제목</label>
+                    <input type="text" id="edit-title" name="title" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label for="edit-content" class="block text-sm font-medium text-gray-700 mb-1">내용</label>
+                    <textarea id="edit-content" name="content" rows="10" required 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeEditView()"
+                            class="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">취소</button>
+                    <button type="submit" 
+                            class="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">수정 완료</button>
                 </div>
             </form>
         </div>
     </div>
+
 
     <script>
-        // 🚨 [주의] 이 API_URL 변수는 실제 로드 밸런서 DNS 주소로 변경해야 합니다.
-        // 예: const API_URL = 'http://project-512539823.ap-northeast-2.elb.amazonaws.com';
-        const API_URL = 'http://api.chxtwo.kro.kr'; 
+        // API 주소 설정
+        const API_URL = "http://api.chxtwo.kro.kr"; 
 
-        const postModal = document.getElementById('post-modal');
-        const createPostModal = document.getElementById('create-post-modal');
-        let currentPostId = null; // 현재 상세 보기 중인 게시글 ID
+        // 전역 변수
+        let currentPostId = null;
 
         // =========================================================
-        // 0. 유틸리티 함수
+        // 1. 유틸리티 함수
         // =========================================================
 
-        // 로컬 스토리지에서 로그인된 사용자 ID를 가져옵니다 (INT 타입으로 변환)
         function getUserId() {
+            // 사용자 고유 ID를 가져옵니다 (숫자 타입으로 변환).
             const id = localStorage.getItem('loggedInUserId');
-            return id ? parseInt(id, 10) : null;
+            return id ? parseInt(id) : null;
         }
 
-        // 로그인 상태에 따라 UI를 업데이트합니다.
-        function updateAuthUI() {
-            const authUI = document.getElementById('auth-ui');
-            const nickname = localStorage.getItem('loggedInNickname');
-            const loggedInUserId = getUserId();
-            const commentTextarea = document.getElementById('comment-content');
-            const submitCommentBtn = document.getElementById('submit-comment-btn');
+        function getAuthToken() {
+            // JWT 토큰을 가져옵니다.
+            return localStorage.getItem('authToken');
+        }
 
-            if (loggedInUserId && nickname) {
-                // 로그인 상태: 닉네임과 로그아웃 버튼 표시
-                authUI.innerHTML = `
-                    <span class="text-sm font-medium text-gray-700">${nickname}님 환영합니다!</span>
-                    <button id="logout-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-3 rounded-lg transition duration-150">
-                        로그아웃
-                    </button>
-                `;
-                document.getElementById('logout-btn').addEventListener('click', logout);
-                document.getElementById('create-post-btn').style.display = 'block';
-                commentTextarea.placeholder = '댓글을 작성하세요.';
-                submitCommentBtn.disabled = false;
-                
+        // =========================================================
+        // 2. 인증/UI 관련 함수
+        // =========================================================
+
+        // UI 상태 업데이트
+        function updateAuthUI() {
+            const token = getAuthToken();
+            const nickname = localStorage.getItem('loggedInNickname');
+            const loginLink = document.getElementById('login-link');
+            const logoutButton = document.getElementById('logout-button');
+            const welcomeMessage = document.getElementById('welcome-message');
+            const createButton = document.getElementById('open-create-modal-button');
+
+            if (token && nickname) {
+                // 로그인 상태
+                loginLink.classList.add('hidden');
+                logoutButton.classList.remove('hidden');
+                welcomeMessage.classList.remove('hidden');
+                welcomeMessage.textContent = `${nickname}님 환영합니다.`;
+                createButton.disabled = false; // 게시글 작성 버튼 활성화
             } else {
-                // 로그아웃 상태: 로그인 및 회원가입 버튼 표시
-                authUI.innerHTML = `
-                    <a href="login.html" class="text-indigo-600 hover:text-indigo-800 font-medium">로그인</a>
-                    <a href="register.html" class="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-3 rounded-lg transition duration-150">
-                        회원가입
-                    </a>
-                `;
-                document.getElementById('create-post-btn').style.display = 'none';
-                commentTextarea.placeholder = '댓글 작성을 위해서는 로그인이 필요합니다.';
-                submitCommentBtn.disabled = true;
+                // 로그아웃 상태
+                loginLink.classList.remove('hidden');
+                logoutButton.classList.add('hidden');
+                welcomeMessage.classList.add('hidden');
+                createButton.disabled = true; // 게시글 작성 버튼 비활성화
             }
         }
 
         // 로그아웃 처리
-        function logout() {
+        document.getElementById('logout-button').addEventListener('click', () => {
             localStorage.removeItem('authToken');
             localStorage.removeItem('loggedInUserId');
             localStorage.removeItem('loggedInNickname');
             updateAuthUI();
-            loadPosts(); // 로그아웃 후 게시글 목록 새로고침 (작성 버튼 사라짐)
-            alert('로그아웃 되었습니다.');
-        }
+            alert('로그아웃되었습니다.');
+            loadPosts(); // 게시글 목록 새로고침 (필요하다면)
+        });
+
 
         // =========================================================
-        // 1. 게시글 목록 로드 (🛠️ 수정: 검색 기능 포함)
+        // 3. 게시글 목록 조회 (GET /posts)
         // =========================================================
-        async function loadPosts(searchQuery = '') {
-            const postsList = document.getElementById('posts-list');
-            postsList.innerHTML = ''; 
+        async function loadPosts() {
+            const tableBody = document.getElementById('posts-table-body');
+            const noPostsMessage = document.getElementById('no-posts-message');
+            tableBody.innerHTML = ''; // 기존 목록 초기화
 
             try {
-                // 🛠️ 수정: 검색어가 있다면 쿼리 파라미터를 추가합니다.
-                const url = searchQuery 
-                    ? `${API_URL}/posts?search=${encodeURIComponent(searchQuery)}`
-                    : `${API_URL}/posts`;
-                    
-                const response = await fetch(url); 
-                if (!response.ok) throw new Error('게시글 목록 로드 실패');
+                const response = await fetch(`${API_URL}/posts`);
+                if (!response.ok) {
+                    throw new Error('게시글 목록 로드 실패');
+                }
                 
                 const posts = await response.json();
-
+                
                 if (posts.length === 0) {
-                    postsList.innerHTML = `<p class="text-center text-gray-500 py-10">${searchQuery ? `'${searchQuery}'에 대한 검색 결과가 없습니다.` : '등록된 게시글이 없습니다.'}</p>`;
-                    return;
-                }
+                    noPostsMessage.classList.remove('hidden');
+                } else {
+                    noPostsMessage.classList.add('hidden');
+                    posts.forEach(post => {
+                        const row = document.createElement('tr');
+                        row.className = 'post-item hover:bg-gray-100 transition duration-150 ease-in-out';
+                        row.setAttribute('data-post-id', post.post_id);
+                        row.onclick = () => openPostDetail(post.post_id);
 
-                posts.forEach(post => {
-                    const postElement = document.createElement('div');
-                    postElement.className = 'post-item bg-white p-4 rounded-xl shadow-lg border border-gray-200 hover:border-indigo-400 transition duration-300 transform hover:scale-[1.01]';
-                    
-                    // 게시글 제목만 표시 (이전 요청 반영)
-                    postElement.innerHTML = `
-                        <h3 class="text-xl font-bold text-gray-800 truncate">${post.title}</h3>
-                        
-                        <div class="mt-3 text-sm text-gray-500 flex justify-between items-center border-t pt-2">
-                            <span class="text-indigo-600 font-medium">작성자: ${post.authorName || '익명'}</span> 
-                            <div class="flex items-center space-x-3">
-                                <span class="text-xs">조회수: ${post.views || 0}</span>
-                                <span class="text-xs">${new Date(post.created_at).toLocaleDateString()}</span>
-                            </div>
-                        </div>
-                    `;
-                    
-                    postElement.addEventListener('click', () => {
-                        showPostModal(post.post_id); 
+                        row.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${post.post_id}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-medium">${post.title}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${post.nickname}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${post.created_at}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${post.views}</td>
+                        `;
+                        tableBody.appendChild(row);
                     });
+                }
 
-                    postsList.appendChild(postElement);
-                });
             } catch (error) {
-                console.error("게시글 로드 오류:", error);
-                postsList.innerHTML = '<p class="text-red-500">게시글 목록을 불러오는 데 실패했습니다. (CORS 또는 서버 오류 확인 필요)</p>';
+                console.error("게시글 목록 로드 중 오류:", error);
+                tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">게시글 목록을 불러올 수 없습니다. 서버 상태를 확인하세요.</td></tr>`;
+                noPostsMessage.classList.add('hidden');
             }
         }
 
-        // =========================================================
-        // 2. 검색 기능 이벤트 리스너
-        // =========================================================
-        document.getElementById('search-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const searchInput = document.getElementById('search-input');
-            loadPosts(searchInput.value.trim()); // 입력된 검색어로 게시글 로드
-        });
-
-        document.getElementById('reset-search-btn').addEventListener('click', () => {
-            document.getElementById('search-input').value = '';
-            loadPosts(); // 검색어 없이 전체 게시글 로드
-        });
 
         // =========================================================
-        // 3. 게시글 상세 및 댓글 로드 (showPostModal)
+        // 4. 게시글 작성 (POST /posts)
         // =========================================================
-        async function showPostModal(postId) {
-            try {
-                const response = await fetch(`${API_URL}/posts/${postId}`);
-                if (!response.ok) throw new Error('게시글 상세 로드 실패');
-                
-                const post = await response.json();
 
-                document.getElementById('modal-post-title').textContent = post.title;
-                document.getElementById('modal-post-author').textContent = `작성자: ${post.authorName || '익명'}`;
-                document.getElementById('modal-post-date').textContent = new Date(post.created_at).toLocaleDateString();
-                document.getElementById('modal-post-views').textContent = `조회수: ${post.views + 1}`; // 이미 증가된 조회수 표시
-                document.getElementById('modal-post-content').textContent = post.content;
-                
-                currentPostId = postId; 
-                
-                // 🛠️ 추가: 게시글 작성자와 로그인 사용자가 일치하는지 확인하여 수정/삭제 버튼 표시
-                const loggedInUserId = getUserId();
-                // user_id는 DB에서 숫자로 오므로, getUserId()의 결과와 비교 (숫자 vs 숫자)
-                const isAuthor = loggedInUserId === post.user_id;
+        const createPostModal = document.getElementById('create-post-modal');
 
-                let actionButtons = '';
-                if (isAuthor) {
-                    actionButtons = `
-                        <div class="flex space-x-2 justify-end">
-                            <button id="edit-post-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
-                                수정
-                            </button>
-                            <button id="delete-post-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
-                                삭제
-                            </button>
-                        </div>
-                    `;
-                }
-                document.getElementById('post-modal-actions').innerHTML = actionButtons;
-
-                if (isAuthor) {
-                    // 버튼을 DOM에 추가한 후 이벤트 리스너를 붙여야 합니다.
-                    document.getElementById('edit-post-btn').addEventListener('click', openEditModal);
-                    document.getElementById('delete-post-btn').addEventListener('click', deletePost);
-                }
-                
-                loadComments(postId);   
-                postModal.classList.add('show-modal'); 
-
-            } catch (error) {
-                console.error("게시글 상세 로드 오류:", error);
-                alert('게시글을 불러오는 데 실패했습니다.');
+        function openCreateModal() {
+            // 로그인 상태 확인 후 모달 열기
+            if (getAuthToken()) {
+                createPostModal.classList.add('show-modal');
+            } else {
+                alert('게시글 작성을 위해서는 로그인이 필요합니다.');
+                window.location.href = 'login.html';
             }
         }
 
-        // 모달 닫기
-        document.getElementById('close-post-modal-btn').addEventListener('click', closePostModal);
-
-        function closePostModal() {
-            postModal.classList.remove('show-modal');
-            loadPosts(); // 목록 새로고침
+        function closeCreateModal() {
+            createPostModal.classList.remove('show-modal');
+            document.getElementById('post-title').value = '';
+            document.getElementById('post-content').value = '';
         }
         
-        // =========================================================
-        // 4. 게시글 작성 로직 (기존 코드 유지)
-        // =========================================================
-        document.getElementById('create-post-btn').addEventListener('click', () => {
-            if (!getUserId()) {
-                alert('게시글 작성을 위해서는 로그인이 필요합니다.');
-                return;
-            }
-            document.getElementById('create-post-form').reset();
-            createPostModal.classList.add('show-modal');
-        });
+        document.getElementById('open-create-modal-button').addEventListener('click', openCreateModal);
 
-        document.getElementById('close-create-modal-btn').addEventListener('click', () => {
-            createPostModal.classList.remove('show-modal');
-        });
 
         document.getElementById('create-post-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const title = document.getElementById('post-title').value;
             const content = document.getElementById('post-content').value;
-            const authorId = getUserId();
             
+            // 🔑 [수정/추가] 로컬 스토리지에서 JWT 토큰을 가져옵니다.
+            const authToken = getAuthToken(); 
+
+            if (!authToken) {
+                alert('게시글 작성을 위해서는 로그인이 필요합니다. (토큰 누락)');
+                return;
+            }
+
             try {
                 const response = await fetch(`${API_URL}/posts`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, content, authorId })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        // 🔑 [핵심 수정] 토큰을 Authorization 헤더에 Bearer 타입으로 담아 보냅니다.
+                        'Authorization': `Bearer ${authToken}` 
+                    },
+                    body: JSON.stringify({ title, content })
                 });
 
-                if (!response.ok) throw new Error('게시글 작성 실패');
+                if (!response.ok) {
+                    // 서버 오류 메시지를 받아 처리 (예: 401 Unauthorized)
+                    const errorResponse = await response.json();
+                    throw new Error(errorResponse.message || '게시글 작성 실패');
+                }
 
                 alert('게시글이 성공적으로 작성되었습니다.');
-                createPostModal.classList.remove('show-modal');
-                loadPosts(); 
+                closeCreateModal(); // 모달 닫기
+                loadPosts(); // 게시글 목록 새로고침
 
             } catch (error) {
                 console.error("게시글 작성 중 오류:", error);
-                alert('게시글 작성 중 오류가 발생했습니다.');
+                alert('게시글 작성 중 오류가 발생했습니다: ' + error.message);
             }
         });
 
 
         // =========================================================
-        // 5. 댓글 로드 및 작성 로직 (기존 코드 유지)
+        // 5. 게시글 상세 조회/수정/삭제 (POST /posts/<id>, PUT, DELETE)
+        //    (상세 조회 GET /posts/<id> 기능은 다음 단계에서 구현)
         // =========================================================
-        async function loadComments(postId) {
-            const commentsList = document.getElementById('comments-list');
-            commentsList.innerHTML = '<p class="text-center text-gray-400">댓글 로드 중...</p>';
-            try {
-                const response = await fetch(`${API_URL}/posts/${postId}/comments`);
-                if (!response.ok) throw new Error('댓글 목록 로드 실패');
-                
-                const comments = await response.json();
-                commentsList.innerHTML = '';
-                
-                if (comments.length === 0) {
-                    commentsList.innerHTML = '<p class="text-center text-gray-400">아직 댓글이 없습니다.</p>';
-                    return;
-                }
 
-                comments.forEach(comment => {
-                    const commentElement = document.createElement('div');
-                    commentElement.className = 'border-b border-gray-100 pb-2 text-sm';
-                    commentElement.innerHTML = `
-                        <p class="font-medium text-gray-800">${comment.authorName || '익명'}</p>
-                        <p class="text-gray-600 mt-1">${comment.content}</p>
-                        <span class="text-xs text-gray-400 block mt-1">${new Date(comment.created_at).toLocaleDateString()}</span>
-                    `;
-                    commentsList.appendChild(commentElement);
-                });
-            } catch (error) {
-                console.error("댓글 로드 오류:", error);
-                commentsList.innerHTML = '<p class="text-red-500">댓글 목록 로드에 실패했습니다.</p>';
-            }
+        // 현재는 상세 조회/수정/삭제 API가 구현되지 않았으므로, 경고만 표시
+        function openPostDetail(postId) {
+            alert(`[${postId}번 게시글] 상세 조회 기능은 다음 단계에서 구현됩니다.`);
+            // 이후 단계에서 실제 모달을 여는 코드로 대체됩니다.
+            // currentPostId = postId;
+            // document.getElementById('post-detail-modal').classList.add('show-modal');
+            // loadPostDetail(postId);
         }
 
-        // 댓글 제출 처리 (POST 요청)
-        const commentForm = document.getElementById('comment-form');
-        commentForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const commentContent = document.getElementById('comment-content').value;
-            const loggedInUserId = getUserId();
-
-            if (!commentContent || commentContent.trim() === '') {
-                alert('댓글 내용을 입력해주세요.');
-                return;
-            }
-            
-            if (!loggedInUserId) {
-                alert('댓글 작성을 위해서는 로그인이 필요합니다.');
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_URL}/posts/${currentPostId}/comments`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        content: commentContent,
-                        // 숫자로 변환하여 전송 (DB INT 타입에 맞춤)
-                        authorId: parseInt(loggedInUserId, 10), 
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || '댓글 작성 실패'); 
-                }
-                
-                document.getElementById('comment-content').value = '';
-                console.log("댓글 작성 성공.");
-                loadComments(currentPostId); // 댓글 목록 새로고침
-            } catch (error) {
-                console.error("댓글 작성 중 오류:", error);
-                alert('댓글 작성 중 오류가 발생했습니다. 로그를 확인해주세요: ' + error.message);
-            }
-        });
-
-
-        // =========================================================
-        // 6. 게시글 수정/삭제 로직 (🛠️ 새로 추가된 기능)
-        // =========================================================
-        
-        // 수정 모달 열기
-        function openEditModal() {
-            const editModal = document.getElementById('edit-post-modal');
-            
-            // 현재 게시글 상세 모달의 내용을 가져와 수정 모달에 채웁니다.
-            const title = document.getElementById('modal-post-title').textContent;
-            const content = document.getElementById('modal-post-content').textContent;
-
-            document.getElementById('edit-title').value = title;
-            document.getElementById('edit-content').value = content;
-            
-            postModal.classList.remove('show-modal'); // 상세 모달 닫기
-            editModal.classList.add('show-modal');    // 수정 모달 열기
+        function closePostModal() {
+            document.getElementById('post-detail-modal').classList.remove('show-modal');
+            closeEditView(); // 수정 모드 닫기
         }
-        
-        // 수정 모달 닫기
-        document.getElementById('close-edit-modal-btn').addEventListener('click', () => {
-            document.getElementById('edit-post-modal').classList.remove('show-modal');
-            showPostModal(currentPostId); // 수정 모달 닫고 다시 상세 모달 열기
-        });
 
-        // 게시글 수정 처리 (PUT 요청)
-        document.getElementById('edit-post-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const title = document.getElementById('edit-title').value;
-            const content = document.getElementById('edit-content').value;
-            const authorId = getUserId(); 
-            
-            if (!confirm('게시글을 수정하시겠습니까?')) return;
+        function openEditView() {
+            document.getElementById('detail-view').classList.add('hidden');
+            document.getElementById('edit-view').classList.remove('hidden');
+        }
 
-            try {
-                const response = await fetch(`${API_URL}/posts/${currentPostId}`, {
-                    method: 'PUT',
-                    headers: { 
-                        'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({ 
-                        title, 
-                        content,
-                        authorId // 백엔드 검증을 위해 ID 전송
-                    })
-                });
+        function closeEditView() {
+            document.getElementById('detail-view').classList.remove('hidden');
+            document.getElementById('edit-view').classList.add('hidden');
+        }
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || '게시글 수정 실패');
-                }
-
-                alert('게시글이 성공적으로 수정되었습니다.');
-                document.getElementById('edit-post-modal').classList.remove('show-modal');
-                loadPosts(); // 목록 새로고침
-                showPostModal(currentPostId); // 수정된 내용으로 상세 모달 다시 열기
-
-            } catch (error) {
-                console.error('게시글 수정 중 오류:', error);
-                alert('게시글 수정 중 오류가 발생했습니다: ' + error.message);
-            }
-        });
-
-
-        // 게시글 삭제 처리 (DELETE 요청)
+        // 게시글 삭제 처리 (미구현)
         async function deletePost() {
-            if (!confirm('정말로 이 게시글을 삭제하시겠습니까? (댓글 포함)')) return;
-
-            const authorId = getUserId();
-            
-            try {
-                const response = await fetch(`${API_URL}/posts/${currentPostId}`, {
-                    method: 'DELETE',
-                    headers: { 
-                        'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({ 
-                        authorId // 백엔드 검증을 위해 ID 전송
-                    }) 
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || '게시글 삭제 실패');
-                }
-
-                alert('게시글이 성공적으로 삭제되었습니다.');
-                closePostModal(); // 모달 닫기 (내부에서 loadPosts 호출됨)
-
-            } catch (error) {
-                console.error('게시글 삭제 중 오류:', error);
-                alert('게시글 삭제 중 오류가 발생했습니다: ' + error.message);
-            }
+            alert('게시글 삭제 기능은 다음 단계에서 구현됩니다.');
         }
-        
+
 
         // =========================================================
-        // 7. 페이지 로드 시 실행
+        // 6. 페이지 로드 시 실행
         // =========================================================
-        updateAuthUI(); // 로그인 상태 확인 및 UI 업데이트
-        loadPosts(); // 게시글 목록 로드
+        window.onload = function() {
+            updateAuthUI(); // 로그인/로그아웃 버튼 업데이트
+            loadPosts(); // 게시글 목록 로드
+        };
+
+        // ESC 키로 모달 닫기
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeCreateModal();
+                closePostModal();
+            }
+        });
+
     </script>
 </body>
 </html>

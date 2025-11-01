@@ -23,30 +23,36 @@
         <h2 class="text-3xl font-bold text-center text-gray-900">로그인</h2>
         <p class="text-center text-gray-500">계속하려면 계정에 로그인하세요.</p>
 
+        <div id="error-message" class="hidden p-3 bg-red-100 text-red-700 rounded-lg text-sm" role="alert">
+        </div>
+
         <form id="login-form" class="space-y-6">
             <div>
                 <label for="username" class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
-                <input type="text" id="username" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                <input type="text" id="username" name="username" required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
             </div>
             <div>
                 <label for="password" class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
-                <input type="password" id="password" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                <input type="password" id="password" name="password" required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
             </div>
-
-            <p id="error-message" class="text-sm text-red-600 hidden"></p>
-
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-150">로그인</button>
+            
+            <button type="submit" 
+                    class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                로그인
+            </button>
         </form>
 
-        <p class="text-center text-sm text-gray-500">
+        <div class="text-center text-sm">
             계정이 없으신가요? 
-            <a href="register.html" class="text-indigo-600 hover:text-indigo-700 font-medium">회원가입</a>
-        </p>
+            <a href="register.html" class="font-medium text-blue-600 hover:text-blue-500">회원가입</a>
+        </div>
     </div>
 
     <script>
-        // 🚨 [주의] 이 API_URL 변수는 실제 로드 밸런서 DNS 주소로 변경해야 합니다.
-        const API_URL = 'http://api.chxtwo.kro.kr'; 
+        // API 주소 설정 (프론트엔드 URL과 백엔드 URL을 구분)
+        const API_URL = "http://api.chxtwo.kro.kr"; 
 
         const loginForm = document.getElementById('login-form');
         const errorMessage = document.getElementById('error-message');
@@ -54,7 +60,7 @@
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             errorMessage.classList.add('hidden');
-
+            
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
@@ -68,14 +74,12 @@
                 if (response.ok) {
                     const data = await response.json();
                     
-                    // 1. 서버에서 받은 JWT 토큰을 로컬 스토리지에 저장
+                    // 🔑 [수정/추가] 서버에서 받은 JWT 토큰과 사용자 정보를 로컬 스토리지에 저장합니다.
                     localStorage.setItem('authToken', data.token); 
-                    
-                    // 🛠️ 수정된 부분: 사용자 고유 ID(숫자)와 닉네임 저장 (로그인 유지의 핵심)
                     localStorage.setItem('loggedInUserId', data.user_id); 
                     localStorage.setItem('loggedInNickname', data.nickname);
                     
-                    // 2. 로그인 성공 후 게시판 페이지로 리디렉션
+                    // 로그인 성공 후 게시판 페이지로 리디렉션
                     window.location.href = 'index.html'; 
 
                 } else {
