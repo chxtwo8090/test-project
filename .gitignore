@@ -1,0 +1,20 @@
+# Ignore Terraform runtime files and caches
+.terraform/
+*.tfstate
+*.tfstate.*
+# .terraform.lock.hcl is recommended to be committed for reproducible provider versions
+# If you decide NOT to commit it, uncomment the next line to ignore it
+# .terraform.lock.hcl
+terraform.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.d/
+
+# OS / editor files
+.vscode/
+*.log
+*.tmp
+Thumbs.db
+.DS_Store

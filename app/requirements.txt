@@ -1,0 +1,10 @@
+# backend/requirements.txt
+
+Flask
+gunicorn
+# DynamoDB 접근을 위한 AWS SDK
+boto3
+# 비밀번호 해시 및 검증을 위한 라이브러리 (보안 필수)
+Werkzeug
+# UUID 생성 (게시글 ID)
+uuid
