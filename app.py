@@ -38,7 +38,7 @@ def get_db_connection():
         return None
 
 # =======================================================
-# 4. JWT 인증 데코레이터
+# 4. JWT 인증 데코레이터 (변경 없음)
 # =======================================================
 def token_required(f):
     @wraps(f)
@@ -67,13 +67,16 @@ def token_required(f):
     return decorated
 
 # =======================================================
-# 5. 기본 엔드포인트 / 6. 회원가입 / 7. 로그인 (변경 없음)
+# 5. 기본 엔드포인트 (ALB Health Check용)
 # =======================================================
-
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({"message": "Flask Backend is running! (v2.1)"})
+    """ALB Health Check를 위한 기본 응답"""
+    return "OK", 200
 
+# =======================================================
+# 6. 회원가입 API (/register) (변경 없음)
+# =======================================================
 @app.route('/register', methods=['POST'])
 def register_user():
     data = request.get_json()
@@ -100,6 +103,9 @@ def register_user():
     finally:
         if conn: conn.close()
 
+# =======================================================
+# 7. 로그인 API (/login) (변경 없음)
+# =======================================================
 @app.route('/login', methods=['POST'])
 def login_user():
     data = request.get_json()
@@ -126,38 +132,42 @@ def login_user():
 
 
 # =======================================================
-# 8. [신규] 게시글 API (CRUD)
+# 8. 게시글 API (CRUD)
 # =======================================================
 
 @app.route('/posts', methods=['GET'])
 def list_posts():
     """모든 게시글 목록을 최신순으로 조회합니다."""
     conn = get_db_connection()
-    if conn is None: return jsonify({"message": "DB 연결 실패"}), 500
+    if conn is None: return jsonify({"error": "DB 연결 실패"}), 500
     try:
-        with conn.cursor() as cursor:
-            # users 테이블과 JOIN하여 작성자 닉네임을 가져옵니다.
-            SQL = """
+        search_query = request.args.get('search', '') # 검색어 받기
+        SQL = """
             SELECT 
                 p.post_id, p.title, p.views, 
-                p.created_at, u.nickname, u.user_id
+                p.created_at, u.nickname AS authorName, u.user_id
             FROM posts p
-            JOIN users u ON p.user_id = u.user_id
-            ORDER BY p.post_id DESC
-            """
-            cursor.execute(SQL)
+            LEFT JOIN users u ON p.user_id = u.user_id
+        """
+        params = []
+        if search_query:
+            SQL += " WHERE p.title LIKE %s OR p.content LIKE %s"
+            params.extend([f"%{search_query}%", f"%{search_query}%"])
+
+        SQL += " ORDER BY p.post_id DESC"
+        
+        with conn.cursor() as cursor:
+            cursor.execute(SQL, params)
             posts = cursor.fetchall()
         
-        # 날짜 포맷팅을 위한 처리
         for post in posts:
-            # datetime 객체를 문자열로 포맷팅
-            post['created_at'] = post['created_at'].strftime('%Y-%m-%d %H:%M')
+            if post.get('created_at'): post['created_at'] = post['created_at'].strftime('%Y-%m-%dT%H:%M:%S.000Z')
             
         return jsonify(posts), 200
 
     except Exception as e:
         print(f"게시글 목록 조회 중 서버 오류 발생: {e}")
-        return jsonify({"message": "게시글 목록 조회 중 서버 오류가 발생했습니다."}), 500
+        return jsonify({"error": "게시글 목록을 불러오는 데 실패했습니다."}), 500
     finally:
         if conn: conn.close()
 
@@ -169,34 +179,198 @@ def create_post():
     data = request.get_json()
     title = data.get('title')
     content = data.get('content')
-    
-    # user_id는 토큰에서 추출됨
     user_id = request.user_id 
     
     if not all([title, content]):
-        return jsonify({"message": "제목과 내용을 모두 입력해주세요."}), 400
+        return jsonify({"error": "제목과 내용이 필요합니다."}), 400
 
     conn = get_db_connection()
-    if conn is None: return jsonify({"message": "DB 연결 실패"}), 500
+    if conn is None: return jsonify({"error": "DB 연결 실패"}), 500
 
     try:
         with conn.cursor() as cursor:
-            SQL = "INSERT INTO posts (user_id, title, content) VALUES (%s, %s, %s)"
+            SQL = "INSERT INTO posts (user_id, title, content, views, created_at) VALUES (%s, %s, %s, 0, NOW())"
             cursor.execute(SQL, (user_id, title, content))
 
         conn.commit()
-        # 작성된 게시글의 ID를 반환 (프론트엔드 상세 조회에 필요)
-        return jsonify({"message": "게시글이 성공적으로 작성되었습니다.", "post_id": cursor.lastrowid}), 201
+        return jsonify({"message": "게시글이 성공적으로 작성되었습니다.", "postId": cursor.lastrowid}), 201
 
     except Exception as e:
         print(f"게시글 작성 중 서버 오류 발생: {e}")
-        return jsonify({"message": "게시글 작성 중 서버 오류가 발생했습니다."}), 500
+        return jsonify({"error": "게시글 작성 중 서버 오류가 발생했습니다."}), 500
+    finally:
+        if conn: conn.close()
+
+# ⬇️ [신규 추가] 게시글 상세, 수정, 삭제 API
+@app.route('/posts/<int:post_id>', methods=['GET'])
+def get_post_detail(post_id):
+    """게시글 상세 정보(본문 포함)를 조회하고 조회수를 1 증가시킵니다."""
+    conn = get_db_connection()
+    if conn is None: 
+        return jsonify({"error": "DB 연결 실패"}), 500
+    try:
+        with conn.cursor() as cursor:
+            # 1. 조회수 증가
+            cursor.execute("UPDATE posts SET views = views + 1 WHERE post_id = %s", (post_id,))
+            
+            # 2. 게시글 상세 정보 조회 (본문 content 포함)
+            SQL = """
+                SELECT p.post_id, p.title, p.content, p.views, p.created_at, p.updated_at,
+                       u.nickname AS authorName, u.user_id
+                FROM posts p
+                LEFT JOIN users u ON p.user_id = u.user_id
+                WHERE p.post_id = %s
+            """
+            cursor.execute(SQL, (post_id,))
+            post = cursor.fetchone()
+        
+        conn.commit() # 조회수 증가 반영
+        
+        if not post:
+            return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
+        
+        if post.get('created_at'): post['created_at'] = post['created_at'].strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        if post.get('updated_at'): post['updated_at'] = post['updated_at'].strftime('%Y-%m-%dT%H:%M:%S.000Z')
+
+        return jsonify(post), 200
+    except Exception as e:
+        conn.rollback() 
+        print(f"게시글 상세 조회 오류: {e}")
+        return jsonify({"error": "게시글을 불러오는 데 실패했습니다."}), 500
+    finally:
+        if conn: conn.close()
+
+
+@app.route('/posts/<int:post_id>', methods=['PUT'])
+@token_required # ⬅️ JWT 인증 필요
+def update_post(post_id):
+    """게시글을 수정합니다. (작성자 본인만)"""
+    data = request.get_json()
+    title = data.get('title')
+    content = data.get('content')
+    user_id_from_token = request.user_id 
+    
+    if not all([title, content]):
+        return jsonify({"error": "제목과 내용이 필요합니다."}), 400
+    
+    conn = get_db_connection()
+    if conn is None: return jsonify({"error": "DB 연결 실패"}), 500
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT user_id FROM posts WHERE post_id = %s", (post_id,))
+            post = cursor.fetchone()
+            if not post:
+                return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
+            
+            if post['user_id'] != user_id_from_token:
+                return jsonify({"error": "게시글 수정 권한이 없습니다."}), 403
+            
+            SQL = "UPDATE posts SET title = %s, content = %s, updated_at = NOW() WHERE post_id = %s"
+            cursor.execute(SQL, (title, content, post_id))
+        
+        conn.commit()
+        return jsonify({"message": "게시글이 성공적으로 수정되었습니다."}), 200
+    except Exception as e:
+        conn.rollback()
+        print(f"게시글 수정 오류: {e}")
+        return jsonify({"error": "게시글 수정 중 서버 오류가 발생했습니다."}), 500
+    finally:
+        if conn: conn.close()
+
+
+@app.route('/posts/<int:post_id>', methods=['DELETE'])
+@token_required # ⬅️ JWT 인증 필요
+def delete_post(post_id):
+    """게시글을 삭제합니다. (작성자 본인만)"""
+    user_id_from_token = request.user_id 
+    
+    conn = get_db_connection()
+    if conn is None: return jsonify({"error": "DB 연결 실패"}), 500
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT user_id FROM posts WHERE post_id = %s", (post_id,))
+            post = cursor.fetchone()
+            if not post:
+                return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
+            
+            if post['user_id'] != user_id_from_token:
+                return jsonify({"error": "게시글 삭제 권한이 없습니다."}), 403
+            
+            cursor.execute("DELETE FROM comments WHERE post_id = %s", (post_id,))
+            cursor.execute("DELETE FROM posts WHERE post_id = %s", (post_id,))
+            
+        conn.commit()
+        return jsonify({"message": "게시글이 성공적으로 삭제되었습니다."}), 200
+    except Exception as e:
+        conn.rollback()
+        print(f"게시글 삭제 오류: {e}")
+        return jsonify({"error": "게시글 삭제 중 서버 오류가 발생했습니다."}), 500
     finally:
         if conn: conn.close()
 
 
 # =======================================================
-# 9. Gunicorn 또는 로컬 테스트용 실행
+# 10. [신규 추가] 댓글 API
+# =======================================================
+
+@app.route('/posts/<int:post_id>/comments', methods=['GET'])
+def get_comments(post_id):
+    """특정 게시글의 댓글 목록을 조회합니다."""
+    conn = get_db_connection()
+    if conn is None: return jsonify({"error": "DB 연결 실패"}), 500
+    try:
+        with conn.cursor() as cursor:
+            SQL = """
+                SELECT c.comment_id, c.post_id, c.user_id, c.content, c.created_at,
+                       u.nickname AS authorName
+                FROM comments c
+                LEFT JOIN users u ON c.user_id = u.user_id
+                WHERE c.post_id = %s
+                ORDER BY c.created_at ASC
+            """
+            cursor.execute(SQL, (post_id,))
+            comments = cursor.fetchall()
+            
+        for comment in comments:
+            if comment.get('created_at'): comment['created_at'] = comment['created_at'].strftime('%Y-%m-%dT%H:%M:%S.000Z')
+
+        return jsonify(comments), 200
+    except Exception as e:
+        print(f"댓글 목록 로드 오류: {e}")
+        return jsonify({"error": "댓글 목록을 불러오는 데 실패했습니다."}), 500
+    finally:
+        if conn: conn.close()
+
+
+@app.route('/posts/<int:post_id>/comments', methods=['POST'])
+@token_required # ⬅️ JWT 인증 필요
+def create_comment(post_id):
+    """특정 게시글에 댓글을 작성합니다. (로그인 필수)"""
+    data = request.get_json()
+    content = data.get('content')
+    user_id = request.user_id 
+    
+    if not content:
+        return jsonify({"error": "댓글 내용을 입력해야 합니다."}), 400
+
+    conn = get_db_connection()
+    if conn is None: return jsonify({"error": "DB 연결 실패"}), 500
+    try:
+        with conn.cursor() as cursor:
+            SQL = "INSERT INTO comments (post_id, user_id, content, created_at) VALUES (%s, %s, %s, NOW())"
+            cursor.execute(SQL, (post_id, user_id, content))
+        
+        conn.commit()
+        return jsonify({"message": "댓글 작성 성공", "commentId": cursor.lastrowid}), 201
+    except Exception as e:
+        print(f"댓글 작성 오류: {e}")
+        return jsonify({"error": "댓글 작성 중 서버 오류가 발생했습니다."}), 500
+    finally:
+        if conn: conn.close()
+
+
+# =======================================================
+# 11. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=True)
