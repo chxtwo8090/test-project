@@ -10,3 +10,4 @@ Werkzeug
 uuid
 PyMySQL
 openai
+bcrypt
