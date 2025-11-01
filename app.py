@@ -2,7 +2,7 @@ import os
 import pymysql
 import bcrypt
 import jwt
-# import requests ⬅️ [제거]
+import requests
 # from bs4 import BeautifulSoup ⬅️ [제거]
 from datetime import datetime, timedelta
 from functools import wraps
