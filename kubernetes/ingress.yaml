@@ -2,19 +2,12 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: flask-app-ingress
-  # [핵심]
-  # 이 '주석(Annotations)'들이 방금 설치한 'AWS Load Balancer Controller'에게
-  # 어떤 ALB를 만들지 지시하는 명령입니다.
+
   annotations:
-    # 1. Ingress 컨트롤러의 이름을 지정합니다 (우리가 설치한 것).
-    kubernetes.io/ingress.class: alb 
-    
-    # 2. ALB의 종류를 지정합니다 (internet-facing = 인터넷 공개용).
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    
-    # 3. ALB가 트래픽을 파드(Pod)에 직접 전달하도록 설정합니다 (IP 모드).
-    alb.ingress.kubernetes.io/target-type: ip
+     alb.ingress.kubernetes.io/scheme: internet-facing
+     alb.ingress.kubernetes.io/target-type: ip
 spec:
+  ingressClassName: alb
   rules:
   # 외부에서 들어오는 모든 HTTP 요청(경로 '/')을...
   - http:
