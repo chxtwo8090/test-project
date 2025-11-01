@@ -3,7 +3,7 @@ import pymysql
 import bcrypt
 import jwt
 import requests
-# from bs4 import BeautifulSoup ⬅️ 더 이상 필요하지 않습니다.
+# from bs4 import BeautifulSoup ⬅️ [제거됨] 이 라인을 삭제했습니다.
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify
@@ -318,7 +318,6 @@ def create_comment(post_id):
 def get_finance_summary():
     """네이버 실시간 지수 API를 호출하여 KOSPI, KOSDAQ 정보를 반환합니다."""
     
-    # 네이버에서 비공식적으로 제공하는 실시간 지수 API
     url = "https://api.finance.beta.naver.com/naverpay/api/public/realtime/domestic/stock/major"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -330,19 +329,26 @@ def get_finance_summary():
         
         data = response.json()
         
-        # API 응답에서 KOSPI, KOSDAQ 정보만 추출
-        # (API 응답 구조가 'KOSPI', 'KOSDAQ' 키를 포함한다고 가정)
         kospi_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSPI')
         kosdaq_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSDAQ')
+
+        # API 응답 형식에 맞춰 데이터 가공
+        kospi_change_sign = kospi_data.get('fluctuationsSign', '')
+        kospi_change_val = kospi_data.get('fluctuations', '0')
+        kospi_change_ratio = kospi_data.get('fluctuationsRatio', '0')
+        
+        kosdaq_change_sign = kosdaq_data.get('fluctuationsSign', '')
+        kosdaq_change_val = kosdaq_data.get('fluctuations', '0')
+        kosdaq_change_ratio = kosdaq_data.get('fluctuationsRatio', '0')
 
         return jsonify({
             "kospi": {
                 "value": kospi_data.get('closePrice'),
-                "change": f"{kospi_data.get('fluctuationsSign')}{kospi_data.get('fluctuations')} ({kospi_data.get('fluctuationsRatio')}%)"
+                "change": f"{kospi_change_sign}{kospi_change_val} ({kospi_change_ratio}%)"
             },
             "kosdaq": {
                 "value": kosdaq_data.get('closePrice'),
-                "change": f"{kosdaq_data.get('fluctuationsSign')}{kosdaq_data.get('fluctuations')} ({kosdaq_data.get('fluctuationsRatio')}%)"
+                "change": f"{kosdaq_change_sign}{kosdaq_change_val} ({kosdaq_change_ratio}%)"
             }
         }), 200
 
@@ -354,10 +360,10 @@ def get_finance_summary():
         return jsonify({
             "error": "금융 정보를 가져오는 데 실패했습니다.", 
             "detail": error_detail
-        }), 400
+        }), 400 # 500 대신 400 반환
 
 # =======================================================
-# 12. Gunicorn 또는 로컬 테스트용 실행 (중복 제거됨)
+# 12. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=True)
