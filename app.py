@@ -4,7 +4,7 @@ import bcrypt
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import logging # 💡 [수정] 로깅 모듈 임포트
 
@@ -89,8 +89,9 @@ def token_required(f):
 # =======================================================
 @app.route('/', methods=['GET'])
 def home():
-    """ALB Health Check를 위한 기본 응답"""
-    return "OK", 200
+    """메인 페이지 렌더링 (finance.html)"""
+    # 💡 수정: Health Check 대신 'finance.html' 템플릿을 렌더링합니다.
+    return render_template('finance.html')
 
 # =======================================================
 # 6. 회원가입 API (/register) (수정됨)
