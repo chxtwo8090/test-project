@@ -2,37 +2,35 @@ import os
 import pymysql
 import bcrypt
 import jwt
+import logging
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, render_template
-# from flask_cors import CORS # 🛑 제거: Gunicorn이 CORS 헤더를 삽입하도록 변경
-import logging
-
+from flask import Flask, request, jsonify, render_template, Response # 💡 Response 임포트 추가
+# from flask_cors import CORS # 🛑 제거
+ 
 # --- DynamoDB/Boto3 임포트 및 설정 추가 ---
 import boto3
 from decimal import Decimal
 import json
 from botocore.exceptions import ClientError
-
+ 
 AWS_REGION = 'ap-northeast-2'
 DYNAMODB_TABLE_NAME = 'NaverStockData' 
 # ---------------------------------------- 
-
+ 
 # =======================================================
 # 1. Flask 애플리케이션 초기 설정
 # =======================================================
 app = Flask(__name__)
 
-# 🛑 [제거] Flask-CORS 초기화 코드는 Gunicorn이 담당하므로 제거
-
 SECRET_KEY = os.environ.get("SECRET_KEY", "your_strong_secret_key_that_should_be_in_secrets")
-
+ 
 # Gunicorn 로깅 설정
 if __name__ != '__main__':
     gunicorn_logger = logging.getLogger('gunicorn.error')
     app.logger.handlers = gunicorn_logger.handlers
     app.logger.setLevel(gunicorn_logger.level)
-
+ 
 # =======================================================
 # 2. RDS 환경 변수 로드 및 3. DB 연결 함수
 # =======================================================
@@ -40,7 +38,7 @@ DB_HOST = os.environ.get("DB_HOST")
 DB_NAME = os.environ.get("DB_NAME")
 DB_USER = os.environ.get("DB_USER")
 DB_PASSWORD = os.environ.get("DB_PASSWORD")
-
+ 
 def get_db_connection():
     if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD]):
         app.logger.error("Error: DB environment variables are not set.")
@@ -54,9 +52,9 @@ def get_db_connection():
     except Exception as e:
         app.logger.error(f"Database connection error: {e}")
         return None
-
+ 
 # =======================================================
-# 4. JWT 인증 데코레이터 (생략)
+# 4. JWT 인증 데코레이터
 # =======================================================
 def token_required(f):
     @wraps(f)
@@ -83,7 +81,7 @@ def token_required(f):
             return jsonify({'message': '인증 오류가 발생했습니다.'}), 401
         return f(*args, **kwargs)
     return decorated
-
+ 
 # =======================================================
 # 5. 기본 엔드포인트 (메인 페이지 렌더링)
 # =======================================================
@@ -91,9 +89,9 @@ def token_required(f):
 def home():
     """메인 페이지 렌더링 (finance.html)"""
     return render_template('finance.html')
-
+ 
 # =======================================================
-# 6. 회원가입 API (생략)
+# 6. 회원가입 API
 # =======================================================
 @app.route('/register', methods=['POST'])
 def register_user():
@@ -120,9 +118,9 @@ def register_user():
         return jsonify({"message": "회원가입 중 서버 오류가 발생했습니다."}), 500
     finally:
         if conn: conn.close()
-
+ 
 # =======================================================
-# 7. 로그인 API (생략)
+# 7. 로그인 API
 # =======================================================
 @app.route('/login', methods=['POST'])
 def login_user():
@@ -147,10 +145,10 @@ def login_user():
         return jsonify({"message": "로그인 중 서버 오류가 발생했습니다."}), 500
     finally:
         if conn: conn.close()
-
-
+ 
+ 
 # =======================================================
-# 8. 게시글 API (CRUD) (생략)
+# 8. 게시글 API (CRUD)
 # =======================================================
 @app.route('/posts', methods=['GET'])
 def list_posts():
@@ -178,7 +176,7 @@ def list_posts():
         return jsonify({"error": "게시글 목록을 불러오는 데 실패했습니다."}), 500
     finally:
         if conn: conn.close()
-
+ 
 @app.route('/posts', methods=['POST'])
 @token_required
 def create_post():
@@ -199,7 +197,7 @@ def create_post():
         return jsonify({"error": "게시글 작성 중 서버 오류가 발생했습니다."}), 500
     finally:
         if conn: conn.close()
-
+ 
 @app.route('/posts/<int:post_id>', methods=['GET'])
 def get_post_detail(post_id):
     conn = get_db_connection()
@@ -226,7 +224,7 @@ def get_post_detail(post_id):
         return jsonify({"error": "게시글을 불러오는 데 실패했습니다."}), 500
     finally:
         if conn: conn.close()
-
+ 
 @app.route('/posts/<int:post_id>', methods=['PUT'])
 @token_required
 def update_post(post_id):
@@ -253,7 +251,7 @@ def update_post(post_id):
         return jsonify({"error": "게시글 수정 중 서버 오류가 발생했습니다."}), 500
     finally:
         if conn: conn.close()
-
+ 
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
 @token_required
 def delete_post(post_id):
@@ -277,9 +275,9 @@ def delete_post(post_id):
         return jsonify({"error": "게시글 삭제 중 서버 오류가 발생했습니다."}), 500
     finally:
         if conn: conn.close()
-
+ 
 # =======================================================
-# 10. 댓글 API (생략)
+# 9. 댓글 API
 # =======================================================
 @app.route('/posts/<int:post_id>/comments', methods=['GET'])
 def get_comments(post_id):
@@ -303,7 +301,7 @@ def get_comments(post_id):
         return jsonify({"error": "댓글 목록을 불러오는 데 실패했습니다."}), 500
     finally:
         if conn: conn.close()
-
+ 
 @app.route('/posts/<int:post_id>/comments', methods=['POST'])
 @token_required
 def create_comment(post_id):
@@ -324,33 +322,28 @@ def create_comment(post_id):
         return jsonify({"error": "댓글 작성 중 서버 오류가 발생했습니다."}), 500
     finally:
         if conn: conn.close()
-
-
-
+ 
+ 
 # =======================================================
-# 12. DynamoDB Decimal 변환 헬퍼
+# 10. DynamoDB Decimal 변환 헬퍼
 # =======================================================
 def decimal_default(obj):
     if isinstance(obj, Decimal):
         return float(obj)
     raise TypeError
-
+ 
 # =======================================================
-# 13. [신규] DynamoDB 크롤링 데이터 조회 API
+# 11. DynamoDB 크롤링 데이터 조회 API (CORS 최종 수정 적용)
 # =======================================================
 @app.route('/api/stock/market-sum', methods=['GET'])
 def get_kospi_market_sum():
     """DynamoDB에 저장된 시가총액 상위 종목 데이터를 JSON 형태로 반환"""
     try:
-        app.logger.info("Attempting to connect to DynamoDB...")
         dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
         table = dynamodb.Table(DYNAMODB_TABLE_NAME)
         
-        app.logger.info(f"Scanning DynamoDB table: {DYNAMODB_TABLE_NAME}")
-        # DynamoDB의 모든 항목 스캔
         response = table.scan()
-        items = response['Items']
-        app.logger.info(f"Found {len(items)} items in DynamoDB.")
+        items = response.get('Items', [])
         
         final_data = []
         for item in items:
@@ -368,25 +361,50 @@ def get_kospi_market_sum():
             final_data.append(cleaned_item)
             
         app.logger.info("Data processing successful, returning JSON.")
-        return jsonify(final_data), 200
-
+        
+        # 🛑 Response 객체를 직접 사용하여 응답을 생성하고 헤더 삽입 (After_request와 이중 보장)
+        json_data = json.dumps(final_data)
+        response = Response(json_data, mimetype='application/json', status=200)
+        
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        
+        return response
+ 
     except ClientError as e:
         app.logger.error(f"DynamoDB 조회 오류: {e.response['Error']['Message']}", exc_info=True)
         return jsonify({"error": "DynamoDB 데이터 조회 실패", "message": e.response['Error']['Message']}), 500
     except Exception as e:
         app.logger.error(f"API 서버 오류: {e}", exc_info=True)
         return jsonify({"error": "서버 내부 오류 발생"}), 500
-
-
+ 
+ 
 # =======================================================
-# 14. Gunicorn 또는 로컬 테스트용 실행
+# 12. CORS 및 Gzip 인코딩 문제 최종 해결 핸들러
+# =======================================================
+@app.after_request
+def after_request(response):
+    """
+    Gunicorn/ALB 환경에서 헤더가 누락되는 문제 대비하여 모든 응답에 CORS 헤더를 강제 삽입
+    """
+    # 1. CORS 헤더 강제 삽입
+    origin = request.headers.get('Origin', '*')
+    
+    # 요청 Origin을 그대로 반사하여 보안 강화 및 '*' 사용 (CORS preflight 포함)
+    response.headers.add('Access-Control-Allow-Origin', origin) 
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    
+    # 2. Gzip 문제 해결: Content-Encoding을 'identity'(압축 없음)로 설정
+    if 'Content-Encoding' in response.headers:
+        response.headers['Content-Encoding'] = 'identity'
+        
+    return response
+ 
+# =======================================================
+# 13. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
 if __name__ == '__main__':
     # host='0.0.0.0', port=80 로 실행되어야 S3 웹사이트에서 접근 가능
-    app.run(host='0.0.0.0', port=80, debug=True) 
-
-# 🛑 [제거] after_request 함수도 Gunicorn CORS 옵션으로 대체했으므로 제거
-# @app.after_request
-# def after_request(response):
-#     # ... (CORS 강제 삽입 코드) ...
-#     return response
+    app.run(host='0.0.0.0', port=80, debug=True)
