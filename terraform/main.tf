@@ -129,32 +129,3 @@ resource "aws_s3_bucket_policy" "frontend" {
   # public_access_block이 적용되기 전에 policy가 적용될 수 있도록 의존성 추가
   depends_on = [aws_s3_bucket_public_access_block.frontend]
 }
-# ===============================================
-# 7. LLM 모델 S3 참조 및 IAM 권한 설정 (신규)
-# ===============================================
-
-# 7-1. LLM 모델이 저장된 기존 S3 버킷 'chxtwo-git'의 정보 가져오기
-data "aws_s3_bucket" "llm_models" {
-  bucket = "chxtwo-git" 
-}
-
-# 7-2. 기존 ECS Task Execution Role에 S3 읽기 권한을 추가하기 위한 정책 문서
-# (aws_iam_role.ecs_task_execution_role가 이미 존재한다고 가정합니다.)
-data "aws_iam_policy_document" "llm_s3_read_policy" {
-  statement {
-    actions = [
-      "s3:GetObject"
-    ]
-    # 'chxtwo-git' 버킷 내 모든 객체에 대한 권한
-    resources = [
-      "${data.aws_s3_bucket.llm_models.arn}/*", 
-    ]
-  }
-}
-
-# 7-3. Task Execution Role에 S3 읽기 정책 연결
-resource "aws_iam_role_policy" "llm_s3_read_policy_attachment" {
-  name   = "llm-s3-read-access"
-  role   = aws_iam_role.ecs_task_execution_role.id # 기존 Task Role 참조
-  policy = data.aws_iam_policy_document.llm_s3_read_policy.json
-}
