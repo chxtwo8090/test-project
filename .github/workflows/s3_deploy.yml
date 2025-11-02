@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    # 2. GitHub 리포지토리의 코드를 내려받음
+    # 2. GitHub 리포지토리의 코드를 내려받음 
     - name: Checkout Source Code
       uses: actions/checkout@v3
 
