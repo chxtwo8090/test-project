@@ -197,14 +197,22 @@ resource "aws_ecs_task_definition" "app" {
   # === 컨테이너 정의 ===
   container_definitions = jsonencode([{
     name  = "project-app-container",
-    # [임시] NGINX 이미지로 설정. CI/CD 파이프라인이
-    # 이 부분을 실제 Flask 앱 이미지(aws_ecr_repository.app.repository_url)로
-    # 덮어쓰고 환경변수(DB 정보)를 주입할 것입니다.
     image = "nginx:latest",
     portMappings = [{
       containerPort = 80, # NGINX 기본 포트 (Flask도 80으로 맞출 예정)
       hostPort      = 80
     }],
+    # ----------------------------------------------------------------
+        # 🛑 [핵심 수정] command 필드를 명시적으로 추가하여 ECS에 영구 기록
+        # ----------------------------------------------------------------
+        command = [
+            "gunicorn",
+            "--bind", "0.0.0.0:80", 
+            "--header", "Access-Control-Allow-Origin: *", 
+            "--header", "Access-Control-Allow-Credentials: true", 
+            "app:app"
+        ],
+        # ----------------------------------------------------------------
     # 로그 설정을 8-3에서 만든 로그 그룹으로 보냅니다.
     logConfiguration = {
        logDriver = "awslogs",
