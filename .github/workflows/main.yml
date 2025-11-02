@@ -15,7 +15,7 @@ jobs:
     - name: Checkout Source Code
       uses: actions/checkout@v3
 
-    # 3. AWS 자격 증명 설정 (GitHub Secrets에 등록한 정보 사용)
+    # 3. AWS 자격 증명 설정
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -29,7 +29,6 @@ jobs:
       uses: aws-actions/amazon-ecr-login@v1
 
     # 5. Docker 이미지 빌드 및 ECR로 푸시
-    #    (이때 'latest'와 GitHub 커밋 해시(SHA) 두 개의 태그를 붙임)
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
       env:
@@ -42,26 +41,22 @@ jobs:
         docker push $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
         echo "::set-output name=image::$ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG"
 
-    # 6. ECS 작업 정의(Task Definition) 파일 생성
-   
+    # 6. ECS 작업 정의(Task Definition) 파일 생성 및 수정
     - name: Fill in the new image ID in the ECS task definition
       id: task-def
-      # Task Definition JSON을 가져오는 과정 (생략)
       run: |
-        # 기존 task-definition.json을 task-definition.json 파일로 저장하는 과정
-        aws ecs describe-task-definition --task-definition project-app-task --query taskDefinition > task-definition.json
+        # 🛑 [수정] Task Family 이름 'project-app-task'를 직접 사용
+        aws ecs describe-task-definition --task-definition "project-app-task" --query taskDefinition > task-definition.json
 
         IMAGE_URL=${{ steps.build-image.outputs.image }}
-        # 환경 변수 설정 (DB_HOST 등)은 그대로 유지
 
         # ------------------------------------------------------------------
-        # 🛑 [수정] command 필드를 명시적으로 삽입하는 jq 명령 추가 
+        # 🛑 [수정] command 필드를 명시적으로 삽입 (Gunicorn CORS 옵션 포함)
         # ------------------------------------------------------------------
-        # Dockerfile의 CMD를 Task Definition JSON에 강제 삽입합니다.
-        # 이때 JSON 배열로 값을 넣어줘야 합니다.
+        # JSON 배열 문자열 (Gunicorn 명령)
         COMMAND_ARRAY='["gunicorn", "--bind", "0.0.0.0:80", "--header", "Access-Control-Allow-Origin: *", "--header", "Access-Control-Allow-Credentials: true", "app:app"]'
 
-        # 기존 jq 명령 수정
+        # jq 명령: 이미지, 환경 변수, 그리고 command 필드를 업데이트
         jq --arg IMAGE_URL "$IMAGE_URL" \
            --arg DB_HOST "${{ secrets.DB_HOST }}" \
            --arg DB_NAME "${{ secrets.DB_NAME }}" \
@@ -69,7 +64,7 @@ jobs:
            --arg DB_PASSWORD "${{ secrets.DB_PASSWORD }}" \
            --argjson COMMAND_ARRAY "$COMMAND_ARRAY" \
            '.containerDefinitions[0].image = $IMAGE_URL |
-            .containerDefinitions[0].command = $COMMAND_ARRAY |  # ⬅️ 이 라인 추가
+            .containerDefinitions[0].command = $COMMAND_ARRAY |  # ⬅️ command 필드 삽입
             .containerDefinitions[0].environment = [
               {"name": "DB_HOST", "value": $DB_HOST},
               {"name": "DB_NAME", "value": $DB_NAME},
@@ -95,7 +90,6 @@ jobs:
         echo "::set-output name=task_arn::$(cat task-arn.txt)"
 
     # 8. ECS 서비스 업데이트 (배포)
- 
     - name: Deploy to ECS Service
       run: |
         aws ecs update-service \
