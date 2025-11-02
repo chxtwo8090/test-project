@@ -142,6 +142,47 @@ resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/project-app-task"
   retention_in_days = 7 # 7일간 로그 보관
 }
+resource "aws_iam_role" "ecs_task_role" {
+  name = "project-ecs-task-role"
+  
+  # ecs-tasks.amazonaws.com 서비스가 이 역할을 맡을 수 있도록 설정
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action    = "sts:AssumeRole",
+      Effect    = "Allow",
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+    }]
+  })
+}
+
+# [신규] 8-3-1. DynamoDB 읽기 권한 정책 문서
+data "aws_iam_policy_document" "ecs_task_dynamodb" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "dynamodb:Scan", # app.py의 table.scan()에 필요
+      "dynamodb:GetItem",
+      "dynamodb:Query"
+    ]
+    resources = [
+      # ⚠️⚠️⚠️ [중요] YOUR_AWS_ACCOUNT_ID 를 찬규님의 12자리 AWS 계정 ID로 변경하세요! ⚠️⚠️⚠️
+      "arn:aws:dynamodb:ap-northeast-2:798874239435:table/NaverStockData" 
+    ]
+  }
+}
+
+# [신규] 8-3-2. 위에서 만든 정책을 실제 IAM 정책 리소스로 생성
+resource "aws_iam_policy" "ecs_task_dynamodb_policy" {
+  name   = "project-ecs-dynamodb-policy"
+  policy = data.aws_iam_policy_document.ecs_task_dynamodb.json
+}
+
+# [신규] 8-3-3. 생성한 정책을 8-3의 작업 역할(ecs_task_role)에 연결
+resource "aws_iam_role_policy_attachment" "ecs_task_dynamodb_attach" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.ecs_task_dynamodb_policy.arn
+}
 
 # 8-4. ECS 작업 정의 (Task Definition) - ★중요★
 resource "aws_ecs_task_definition" "app" {
@@ -152,6 +193,7 @@ resource "aws_ecs_task_definition" "app" {
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
   # === 컨테이너 정의 ===
   container_definitions = jsonencode([{
     name  = "project-app-container",

@@ -29,7 +29,6 @@ jobs:
       uses: aws-actions/amazon-ecr-login@v1
 
     # 5. Docker 이미지 빌드 및 ECR로 푸시
-    #    (이때 'latest'와 GitHub 커밋 해시(SHA) 두 개의 태그를 붙임)
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
       env:
@@ -43,9 +42,7 @@ jobs:
         echo "::set-output name=image::$ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG"
 
     # 6. ECS 작업 정의(Task Definition) 파일 생성
-    #    Terraform에서 만든 임시(nginx) 작업 정의를 기반으로,
-    #    방금 푸시한 '새 이미지 주소'와 'DB 환경변수'를 주입하여 
-    #    'task-definition.json' 파일을 동적으로 생성합니다.
+   
     - name: Create ECS Task Definition
       id: task-def
       run: |
@@ -87,8 +84,7 @@ jobs:
         echo "::set-output name=task_arn::$(cat task-arn.txt)"
 
     # 8. ECS 서비스 업데이트 (배포)
-    #    ECS 서비스가 7단계에서 등록한 새 작업 정의(task_arn)를 사용하도록
-    #    업데이트하고, 'force-new-deployment' 옵션으로 즉시 재배포합니다.
+ 
     - name: Deploy to ECS Service
       run: |
         aws ecs update-service \
