@@ -49,10 +49,6 @@ jobs:
         aws ecs describe-task-definition --task-definition ${{ secrets.ECS_TASK_FAMILY }} --query taskDefinition > task-definition.json
         
         # 셸 스크립트(jq)를 사용하여 JSON 파일 수정
-        # 1. 'image' 키 값을 새 이미지 URL로 변경
-        # 2. 'environment' 키에 DB 접속 정보(시크릿) 추가
-        # 3. [수정] 'taskRoleArn' 키에 DynamoDB 접근 권한 ARN 추가
-        # 4. 호환되지 않는 키(status, compatibilities 등) 제거
         jq --arg IMAGE_URL ${{ steps.build-image.outputs.image }} \
            --arg DB_HOST ${{ secrets.DB_HOST }} \
            --arg DB_NAME ${{ secrets.DB_NAME }} \
@@ -67,7 +63,7 @@ jobs:
               {"name": "DB_USER", "value": $DB_USER},
               {"name": "DB_PASSWORD", "value": $DB_PASSWORD}
             ] | 
-            .taskRoleArn = $TASK_ROLE_ARN |  # 💡 [수정] 이 줄이 추가되었습니다!
+            .taskRoleArn = $TASK_ROLE_ARN |
             del(.taskDefinitionArn) | 
             del(.revision) | 
             del(.status) | 
