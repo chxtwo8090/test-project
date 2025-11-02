@@ -96,7 +96,7 @@ resource "aws_s3_bucket_website_configuration" "frontend" {
   bucket = data.aws_s3_bucket.frontend.id # 버킷 생성 리소스가 아닌 data를 참조
 
   index_document {
-    suffix = "index.html" # 기본 문서
+    suffix = "finance.html" # 기본 문서
   }
 }
 
