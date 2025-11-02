@@ -386,6 +386,7 @@ def get_kospi_market_sum():
 if __name__ == '__main__':
     # host='0.0.0.0', port=80 로 실행되어야 S3 웹사이트에서 접근 가능
     app.run(host='0.0.0.0', port=80, debug=True) 
+# =======================================================
 @app.after_request
 def after_request(response):
     """
