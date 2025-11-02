@@ -23,7 +23,7 @@ DYNAMODB_TABLE_NAME = 'NaverStockData'
 # =======================================================
 app = Flask(__name__)
 # S3 웹사이트 주소만 허용
-CORS(app, resources={r"/*": {"origins": "*"}})
+# CORS(app, resources={r"/*": {"origins": "*"}})
 # CORS(app, resources={r"/*": {"origins": [
 #     # 1. CORS 에러 메시지에 명시된 실제 요청 출처 (http)
 #     "http://chxtwo-git.s3-website-ap-northeast-2.amazonaws.com", 
@@ -389,7 +389,31 @@ def get_kospi_market_sum():
         app.logger.error(f"API 서버 오류: {e}", exc_info=True)
         return jsonify({"error": "서버 내부 오류 발생"}), 500
 
+@app.after_request
+def after_request(response):
+    """
+    모든 응답에 CORS 헤더를 강제 삽입하여 CORS 문제를 해결
+    """
+    # ⚠️ 와일드카드를 사용해도 오류가 났으므로, 요청이 들어온 오리진을 그대로 반사합니다.
+    # request.headers.get('Origin')은 S3 웹사이트 주소입니다.
+    # "http://chxtwo-git.s3-website-ap-northeast-2.amazonaws.com"
+    
+    origin = request.headers.get('Origin')
+    if origin:
+        # 응답 헤더에 요청 출처를 그대로 반사하여 CORS 허용
+        response.headers.add('Access-Control-Allow-Origin', origin) 
+    else:
+        # Origin 헤더가 없는 경우 대비 (권장하지 않으나 테스트용)
+        # response.headers.add('Access-Control-Allow-Origin', 'http://chxtwo-git.s3-website-ap-northeast-2.amazonaws.com')
+        
+        # 또는 최후의 수단으로 와일드카드 (*) 사용
+        response.headers.add('Access-Control-Allow-Origin', '*') 
+        
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+    response.headers.add('Access-Control-Allow-Credentials', 'true') # JWT 사용 시 필요
 
+    return response
 # =======================================================
 # 14. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
