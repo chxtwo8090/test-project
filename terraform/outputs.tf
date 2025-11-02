@@ -47,9 +47,3 @@ output "db_username" {
   description = "Flask 앱이 연결할 데이터베이스 사용자 이름"
   value       = aws_db_instance.main.username
 }
-
-output "db_password" {
-  description = "Flask 앱이 연결할 데이터베이스 암호 (생성 시 1회만 표시됨)"
-  value       = random_password.db_password.result
-  sensitive   = true # 터미널에 암호가 노출되지 않도록 함
-}

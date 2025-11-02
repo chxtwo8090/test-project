@@ -34,10 +34,10 @@ resource "aws_security_group" "allow_all" {
 # ===============================================
 
 # 5-1. DB 마스터 암호 생성
-resource "random_password" "db_password" {
-  length  = 16
-  special = false # 특수문자 제외 (환경변수 전달 시 단순화)
-}
+#resource "random_password" "db_password" {
+ # length  = 16
+  #special = false # 특수문자 제외 (환경변수 전달 시 단순화)
+#}
 
 # 5-2. RDS 서브넷 그룹
 resource "aws_db_subnet_group" "rds_subnet_group" {
@@ -59,7 +59,7 @@ resource "aws_db_instance" "main" {
   
   db_name              = "project_db"  # Flask가 연결할 데이터베이스 이름
   username             = "admin"
-  password             = random_password.db_password.result
+  password             = "qpfmeksel14!2"
   
   db_subnet_group_name   = aws_db_subnet_group.rds_subnet_group.name
   vpc_security_group_ids = [aws_security_group.allow_all.id] # 모든 트래픽 허용 SG
@@ -260,7 +260,7 @@ resource "null_resource" "db_schema_setup" {
       mysql \
         --host=${aws_db_instance.main.address} \
         --user=${aws_db_instance.main.username} \
-        --password="${random_password.db_password.result}" \
+        --password="qpfmeksel14!2" \
         --database=${aws_db_instance.main.db_name} \
         < ${path.module}/init_db_schema.sql
     EOT
