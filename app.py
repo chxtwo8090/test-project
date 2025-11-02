@@ -23,7 +23,7 @@ DYNAMODB_TABLE_NAME = 'NaverStockData'
 # =======================================================
 app = Flask(__name__)
 # S3 웹사이트 주소만 허용
-CORS(app, resources={r"/*": {"origins": ["*"]}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 # CORS(app, resources={r"/*": {"origins": [
 #     # 1. CORS 에러 메시지에 명시된 실제 요청 출처 (http)
 #     "http://chxtwo-git.s3-website-ap-northeast-2.amazonaws.com", 
