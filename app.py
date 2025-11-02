@@ -386,22 +386,3 @@ def get_kospi_market_sum():
 if __name__ == '__main__':
     # host='0.0.0.0', port=80 로 실행되어야 S3 웹사이트에서 접근 가능
     app.run(host='0.0.0.0', port=80, debug=True) 
-# =======================================================
-@app.after_request
-def after_request(response):
-    """
-    CORS 모듈이 실패하는 환경을 우회하기 위해 모든 응답에 CORS 헤더를 강제 삽입
-    """
-    origin = request.headers.get('Origin')
-    # 브라우저의 요청 출처(Origin)를 확인하여 헤더에 그대로 반사
-    if origin:
-        response.headers.add('Access-Control-Allow-Origin', origin) 
-    else:
-        # Origin 헤더가 없는 경우, S3 웹사이트 주소를 명시적으로 삽입 (안전 장치)
-        response.headers.add('Access-Control-Allow-Origin', 'http://chxtwo-git.s3-website-ap-northeast-2.amazonaws.com')
-        
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS') # OPTIONS 추가 (CORS preflight 대응)
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-
-    return response

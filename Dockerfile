@@ -19,4 +19,8 @@ EXPOSE 80
 # 6. Gunicorn으로 Flask 앱 실행
 #    Gunicorn은 여러 개의 프로세스로 Flask 앱을 실행해주는 WSGI 서버입니다.
 #    'app:app'은 'app.py' 파일 안에 있는 'app' 객체를 실행하라는 의미입니다.
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "app:app"]
+CMD ["gunicorn", \
+     "--bind", "0.0.0.0:80", \
+     "--header", "Access-Control-Allow-Origin: *", \
+     "--header", "Access-Control-Allow-Credentials: true", \
+     "app:app"]
