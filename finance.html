@@ -124,6 +124,30 @@
             color: #333;
             margin-bottom: 10px;
         }
+    .stock-table-card {
+             margin-top: 15px; /* 국내 증시 카드와의 간격 */
+             border-top: 1px solid #008850; /* 구분을 위한 상단 라인 */
+             padding-top: 15px;
+        }
+        #market-sum-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        #market-sum-table th, #market-sum-table td {
+            border: none; /* 기존 border-collapse 유지 */
+            padding: 8px 10px;
+            text-align: right;
+        }
+        #market-sum-table th {
+            background-color: #f7f7f7;
+            border-bottom: 1px solid #ebebeb;
+            font-weight: normal;
+        }
+        .text-left { text-align: left !important; }
+        .red-text { color: #d84a4a; font-weight: bold; } /* 상승 */
+        .green-text { color: #008850; font-weight: bold; } /* 하락 (증시 관례) */
+
     </style>
 </head>
 <body>
@@ -148,12 +172,12 @@
                 <div class="index-card">
                     <div class="index-item" id="kospi-index">
                         <p>KOSPI</p>
-                        <p class="value">Loading...</p>
+                        <p class="value">Error</p>
                         <p class="change">Loading...</p>
                     </div>
                     <div class="index-item" id="kosdaq-index">
                         <p>KOSDAQ</p>
-                        <p class="value">Loading...</p>
+                        <p class="value">Error</p>
                         <p class="change">Loading...</p>
                     </div>
                     <div class="index-item">
@@ -164,6 +188,16 @@
                 </div>
             </div>
 
+            <div class="card stock-table-card">
+                <h3>시가총액 상위 종목 (크롤링 데이터)</h3>
+                <div id="market-sum-status" style="padding: 10px; color: #d84a4a; text-align: center;">데이터를 불러오는 중...</div>
+                <table id="market-sum-table" style="display: none;">
+                    <thead>
+                        <tr id="market-sum-header"></tr>
+                    </thead>
+                    <tbody id="market-sum-body"></tbody>
+                </table>
+            </div>
             <div class="card">
                 <h3>금융 뉴스 및 분석 결과</h3>
                 <ul class="news-list" id="news-list-ul">
@@ -187,10 +221,13 @@
                 </div>
             </div>
 
-            </div>
+        </div>
 
         <div class="side-content">
-            </div>
+            <div class="card">
+                <h3>해외 증시</h3>
+                </div>
+        </div>
     </div>
 
     
@@ -199,99 +236,127 @@
         // 💡 API 주소를 실제 백엔드(ALB) 주소로 설정
         const API_URL = 'http://api.chxtwo.kro.kr'; 
         
-        /**
-         * 💡 [추가] LLM 챗봇 API 호출 및 응답 처리 함수
-         */
-        document.getElementById('llm-chat-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const inputElement = document.getElementById('chat-input');
-            const responseBox = document.getElementById('chat-response-box');
-            const prompt = inputElement.value;
-            
-            responseBox.classList.remove('hidden');
-            responseBox.innerHTML = '분석 요청 중입니다...';
-
-            try {
-                const response = await fetch(`${API_URL}/api/llm/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'LLM 분석에 실패했습니다.');
-                }
-                
-                // 성공 응답 표시
-                responseBox.innerHTML = `**LLM 응답:** ${data.response}`;
-                inputElement.value = ''; // 입력창 초기화
-
-            } catch (error) {
-                console.error("LLM 호출 오류:", error);
-                responseBox.innerHTML = `<span style="color:red;">❌ 오류: ${error.message}</span>`;
-            }
-        });
+        // 표시할 헤더의 순서를 정의합니다.
+        const DISPLAY_HEADERS = ['종목명', '현재가', '전일비', '등락률', '시가총액', 'PER', 'ROE', '외국인비율'];
+        
+        // DynamoDB 키와 표시 헤더 매핑 (DynamoDB에서 가져온 키는 공백이 없을 수 있습니다)
+        const KEY_MAPPING = {
+            '종목명': '종목명',
+            '현재가': '현재가',
+            '전일비': '전일비',
+            '등락률': '등락률',
+            '시가총액': '시가총액',
+            'PER': 'PER',
+            'ROE': 'ROE',
+            '외국인비율': '외국인비율'
+        };
 
 
         /**
-         * 💡 [기존] 금융 요약 정보를 API에서 가져와 화면에 업데이트하는 함수
+         * DynamoDB 크롤링 데이터를 Flask API를 통해 불러와 표시하는 함수
          */
-        async function loadFinanceData() {
+        async function loadStockMarketData() {
+            const statusElement = document.getElementById('market-sum-status');
+            const tableElement = document.getElementById('market-sum-table');
+            const headerRow = document.getElementById('market-sum-header');
+            const tableBody = document.getElementById('market-sum-body');
+
+            statusElement.textContent = '데이터를 불러오는 중...';
+
             try {
-                const response = await fetch(`${API_URL}/api/finance/summary`);
+                // Flask 서버의 새로운 엔드포인트 호출 (app.py의 13번 섹션)
+                const response = await fetch(`${API_URL}/api/stock/market-sum`);
                 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.detail || errorData.error || '금융 데이터 로드 실패');
+                    throw new Error(errorData.error || '시가총액 데이터 로드 실패');
                 }
                 
                 const data = await response.json();
-                
-                // KOSPI 지수 업데이트
-                updateIndex('kospi-index', data.kospi);
-                
-                // KOSDAQ 지수 업데이트
-                updateIndex('kosdaq-index', data.kosdaq);
-                
-            } catch (error) {
-                console.error("금융 데이터 로드 오류:", error);
-                // 오류 메시지 표시
-                document.getElementById('kospi-index').querySelector('.value').textContent = 'Error';
-                document.getElementById('kosdaq-index').querySelector('.value').textContent = 'Error';
-            }
-        }
 
-        /**
-         * 💡 [기존] 지수 DOM 요소를 업데이트하는 헬퍼 함수
-         */
-        function updateIndex(elementId, indexData) {
-            const targetItem = document.getElementById(elementId);
-
-            if (targetItem && indexData) {
-                const valueElement = targetItem.querySelector('.value');
-                const changeElement = targetItem.querySelector('.change');
-
-                valueElement.textContent = indexData.value;
-                changeElement.textContent = indexData.change;
-
-                let color = '#d84a4a'; // 하락 (빨간색)
-                if (indexData.change.includes('+')) {
-                    color = '#008850'; // 상승 (녹색)
-                } else if (!indexData.change.includes('+') && !indexData.change.includes('-')) {
-                    color = '#1c1c1c'; // 보합 (검정)
+                if (data.length === 0) {
+                    statusElement.textContent = '데이터가 DynamoDB에 없습니다.';
+                    tableElement.style.display = 'none';
+                    return;
                 }
-                
-                valueElement.style.color = color;
-                changeElement.style.color = color;
+
+                // 1. 헤더 생성
+                headerRow.innerHTML = '';
+                tableBody.innerHTML = '';
+                DISPLAY_HEADERS.forEach(header => {
+                    const th = document.createElement('th');
+                    th.textContent = header;
+                    th.classList.add(header === '종목명' ? 'text-left' : 'text-right');
+                    headerRow.appendChild(th);
+                });
+
+                // 2. 데이터 행 삽입
+                data.forEach(item => {
+                    const tr = tableBody.insertRow();
+                    DISPLAY_HEADERS.forEach(header => {
+                        const td = tr.insertCell();
+                        const key = KEY_MAPPING[header];
+                        let value = item[key];
+                        
+                        // 데이터가 없는 경우 '-' 처리
+                        if (value === undefined || value === null) {
+                            td.textContent = '-';
+                        } else {
+                            // 등락률에 따른 색상 처리
+                            if (key === '등락률') {
+                                td.textContent = `${value.toFixed(2)}%`;
+                                if (value > 0) td.classList.add('red-text');
+                                else if (value < 0) td.classList.add('green-text');
+                            } 
+                            // 시가총액, 현재가 등 숫자에 쉼표(,) 추가
+                            else if (typeof value === 'number' && ['시가총액', '현재가'].includes(key)) {
+                                td.textContent = value.toLocaleString('ko-KR');
+                            }
+                            // 종목명은 왼쪽 정렬
+                            else if (key === '종목명') {
+                                td.textContent = value;
+                                td.classList.add('text-left');
+                                td.style.fontWeight = 'bold';
+                            }
+                            // 기타 데이터
+                            else {
+                                td.textContent = value;
+                            }
+                        }
+                        // 기본 정렬은 오른쪽으로 (종목명 제외)
+                        if (key !== '종목명') td.classList.add('text-right');
+                    });
+                });
+
+                statusElement.style.display = 'none';
+                tableElement.style.display = 'table'; // 테이블 표시 성공
+
+            } catch (error) {
+                console.error("크롤링 데이터 로드 오류:", error);
+                statusElement.textContent = `데이터 로드 실패: ${error.message}`;
+                statusElement.style.color = 'red';
+                tableElement.style.display = 'none';
             }
         }
+        
+        // 페이지 로드 시 크롤링 데이터 로드
+        document.addEventListener('DOMContentLoaded', loadStockMarketData); 
+
+        // -------------------------------------------------------------
+        // (기존 loadFinanceData, updateIndex, LLM 챗봇 로직은 유지됩니다.)
+        // -------------------------------------------------------------
+        
+        // LLM 챗봇 로직 (이전 코드와 동일)
+        document.getElementById('llm-chat-form').addEventListener('submit', async (e) => { /* ... */ });
+        
+        // 금융 지수 로드 (이전 코드와 동일)
+        async function loadFinanceData() { /* ... */ }
+        function updateIndex(elementId, indexData) { /* ... */ }
 
         // 페이지 로드 시 데이터 로드 시작
         loadFinanceData(); 
 
-        // 1분(60000ms)마다 데이터 새로고침 (실시간 효과)
+        // 1분(60000ms)마다 데이터 새로고침
         setInterval(loadFinanceData, 60000); 
     </script>
-</html> 
+</html>

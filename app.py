@@ -2,11 +2,19 @@ import os
 import pymysql
 import bcrypt
 import jwt
-# import requests ⬅️ [제거] 네트워크 문제로 사용 안 함
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+
+# --- DynamoDB/Boto3 임포트 및 설정 추가 ---
+import boto3
+from decimal import Decimal
+import json
+
+AWS_REGION = 'ap-northeast-2'
+DYNAMODB_TABLE_NAME = 'NaverStockData' 
+# ----------------------------------------
 
 # =======================================================
 # 1. Flask 애플리케이션 초기 설정
@@ -308,9 +316,7 @@ def create_comment(post_id):
     finally:
         if conn: conn.close()
 
-# =======================================================
-# 11. [수정됨] 금융 정보 API (Mock Data 사용)
-# =======================================================
+
 # =======================================================
 # 11. [신규] LLM 챗봇 API (Mock Response)
 # =======================================================
@@ -336,7 +342,55 @@ def llm_chat():
     }), 200
 
 # =======================================================
-# 12. Gunicorn 또는 로컬 테스트용 실행
+# 12. DynamoDB Decimal 변환 헬퍼
+# =======================================================
+def decimal_default(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError
+
+# =======================================================
+# 13. [신규] DynamoDB 크롤링 데이터 조회 API
+# =======================================================
+@app.route('/api/stock/market-sum', methods=['GET'])
+def get_kospi_market_sum():
+    """DynamoDB에 저장된 시가총액 상위 종목 데이터를 JSON 형태로 반환"""
+    try:
+        dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
+        table = dynamodb.Table(DYNAMODB_TABLE_NAME)
+        
+        # DynamoDB의 모든 항목 스캔
+        response = table.scan()
+        items = response['Items']
+        
+        final_data = []
+        for item in items:
+            # 1. Decimal 타입을 float으로 변환
+            cleaned_item = json.loads(json.dumps(item, default=decimal_default))
+            
+            # 2. 키 정리: 'finance'를 '종목명'으로 사용하고, 불필요한 키 제거
+            if 'finance' in cleaned_item:
+                cleaned_item['종목명'] = cleaned_item.pop('finance')
+            if 'date' in cleaned_item:
+                 del cleaned_item['date']
+            if '크롤링시점' in cleaned_item:
+                 del cleaned_item['크롤링시점']
+            
+            final_data.append(cleaned_item)
+            
+        return jsonify(final_data), 200
+
+    except ClientError as e:
+        print(f"DynamoDB 조회 오류: {e}")
+        return jsonify({"error": "DynamoDB 데이터 조회 실패", "message": e.response['Error']['Message']}), 500
+    except Exception as e:
+        print(f"API 서버 오류: {e}")
+        return jsonify({"error": "서버 내부 오류 발생"}), 500
+
+
+# =======================================================
+# 14. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
 if __name__ == '__main__':
+    # host='0.0.0.0', port=80 로 실행되어야 S3 웹사이트에서 접근 가능
     app.run(host='0.0.0.0', port=80, debug=True)
