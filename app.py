@@ -2,7 +2,7 @@ import os
 import pymysql
 import bcrypt
 import jwt
-import boto3  # ⬅️ [추가] AWS SDK
+# import requests ⬅️ [제거] 네트워크 문제로 사용 안 함
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify
@@ -15,11 +15,6 @@ app = Flask(__name__)
 # S3 웹사이트 주소만 허용
 CORS(app, resources={r"/*": {"origins": "http://chxtwo-git.s3-website.ap-northeast-2.amazonaws.com"}})
 SECRET_KEY = os.environ.get("SECRET_KEY", "your_strong_secret_key_that_should_be_in_secrets")
-
-# ⬇️ [추가] Boto3 DynamoDB 리소스 초기화 (ECS Task Role이 자동으로 자격 증명 제공)
-dynamodb = boto3.resource('dynamodb')
-DYNAMODB_TABLE_NAME = 'NaverStockData'
-
 
 # =======================================================
 # 2. RDS 환경 변수 로드 및 3. DB 연결 함수 (변경 없음)
@@ -81,10 +76,8 @@ def home():
     return "OK", 200
 
 # =======================================================
-# 6. ~ 10. (회원가입, 로그인, 게시판, 댓글 API... 변경 없음)
+# 6. 회원가입 API (/register) (변경 없음)
 # =======================================================
-# ... (app.py의 기존 /register, /login, /posts, /comments API 코드는 그대로 둡니다) ...
-
 @app.route('/register', methods=['POST'])
 def register_user():
     data = request.get_json()
@@ -111,6 +104,9 @@ def register_user():
     finally:
         if conn: conn.close()
 
+# =======================================================
+# 7. 로그인 API (/login) (변경 없음)
+# =======================================================
 @app.route('/login', methods=['POST'])
 def login_user():
     data = request.get_json()
@@ -125,7 +121,7 @@ def login_user():
             user = cursor.fetchone()
             if not user: return jsonify({"message": "아이디 또는 비밀번호를 잘못 입력했습니다."}), 401
             if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-                return jsonify({"message": "아이디 또는 비밀번호를 잘못했습니다."}), 401
+                return jsonify({"message": "아이디 또는 비밀번호를 잘못 입력했습니다."}), 401
             payload = {'user_id': user['user_id'], 'nickname': user['nickname'], 'exp': datetime.utcnow() + timedelta(hours=24)}
             token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
             return jsonify({"message": "로그인 성공", "token": token, "user_id": user['user_id'], "nickname": user['nickname']}), 200
@@ -135,6 +131,10 @@ def login_user():
     finally:
         if conn: conn.close()
 
+
+# =======================================================
+# 8. 게시글 API (CRUD) (변경 없음)
+# =======================================================
 @app.route('/posts', methods=['GET'])
 def list_posts():
     conn = get_db_connection()
@@ -261,6 +261,9 @@ def delete_post(post_id):
     finally:
         if conn: conn.close()
 
+# =======================================================
+# 10. 댓글 API (변경 없음)
+# =======================================================
 @app.route('/posts/<int:post_id>/comments', methods=['GET'])
 def get_comments(post_id):
     conn = get_db_connection()
@@ -306,65 +309,34 @@ def create_comment(post_id):
         if conn: conn.close()
 
 # =======================================================
-# 11. [수정됨] 금융 정보 API (DynamoDB 사용)
+# 11. [수정됨] 금융 정보 API (Mock Data 사용)
 # =======================================================
-@app.route('/api/finance/summary', methods=['GET'])
-def get_finance_summary():
-    """DynamoDB에서 'SK'와 'NAVER'의 주식 데이터를 가져옵니다."""
-    
-    try:
-        table = dynamodb.Table(DYNAMODB_TABLE_NAME)
-        
-        # 1. 'SK' 데이터 가져오기
-        sk_response = table.get_item(Key={'finance': 'SK'})
-        sk_data = sk_response.get('Item', {})
-        
-        # 2. 'NAVER' 데이터 가져오기
-        naver_response = table.get_item(Key={'finance': 'NAVER'})
-        naver_data = naver_response.get('Item', {})
-
-        # 3. KOSPI/KOSDAQ 대신 이 두 종목을 반환 (finance.html도 수정 필요)
-        return jsonify({
-            "SK": {
-                "value": sk_data.get('시가총액', 'N/A'), # DynamoDB의 '시가총액' 속성
-                "change": sk_data.get('전일비', 'N/A')  # DynamoDB의 '전일비' 속성
-            },
-            "NAVER": {
-                "value": naver_data.get('시가총액', 'N/A'),
-                "change": naver_data.get('전일비', 'N/A')
-            }
-        }), 200
-
-    except Exception as e:
-        error_detail = str(e)
-        print(f"DynamoDB 조회 오류: {error_detail}")
-        
-        return jsonify({
-            "error": "금융 정보를 가져오는 데 실패했습니다.", 
-            "detail": error_detail
-        }), 400
-
 # =======================================================
-# 12. LLM 챗봇 API (Mock Response) (변경 없음)
+# 11. [신규] LLM 챗봇 API (Mock Response)
 # =======================================================
 @app.route('/api/llm/chat', methods=['POST'])
-@token_required
 def llm_chat():
     """사용자 질문에 대해 LLM이 응답하는 Mock API"""
     data = request.get_json()
     prompt = data.get('prompt')
+    
     if not prompt:
         return jsonify({"message": "프롬프트(질문)가 누락되었습니다."}), 400
+
+    # 💡 Mock Response: 질문 내용에 따라 다른 응답을 반환
     if "삼성전자" in prompt:
-        response_text = "현재 삼성전자는 메모리 반도체 업황 회복 기대감으로 긍정적인 시장 분위기입니다."
+        response_text = "현재 삼성전자는 메모리 반도체 업황 회복 기대감으로 긍정적인 시장 분위기입니다. 목표 주가는 85,000원으로 제시됩니다."
     elif "코스피" in prompt:
-        response_text = "오늘 코스피 시장은 외국인 매수세에 힘입어 상승 마감할 것으로 예상됩니다."
+        response_text = "오늘 코스피 시장은 외국인 매수세에 힘입어 전일 대비 0.5% 상승 마감할 것으로 예상됩니다."
     else:
         response_text = "현재 시장 분석을 위해서는 질문을 좀 더 구체적으로 입력해주세요."
-    return jsonify({"response": response_text}), 200
+
+    return jsonify({
+        "response": response_text
+    }), 200
 
 # =======================================================
-# 13. Gunicorn 또는 로컬 테스트용 실행
+# 12. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=True)
