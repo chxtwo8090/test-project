@@ -15,7 +15,7 @@ jobs:
     - name: Checkout Source Code
       uses: actions/checkout@v3
 
-    # 3. AWS 자격 증명 설정
+    # 3. AWS 자격 증명 설정 (GitHub Secrets에 등록한 정보 사용)
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -29,6 +29,7 @@ jobs:
       uses: aws-actions/amazon-ecr-login@v1
 
     # 5. Docker 이미지 빌드 및 ECR로 푸시
+    #    (이때 'latest'와 GitHub 커밋 해시(SHA) 두 개의 태그를 붙임)
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
       env:
@@ -41,36 +42,30 @@ jobs:
         docker push $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
         echo "::set-output name=image::$ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG"
 
-    # 6. ECS 작업 정의(Task Definition) 파일 생성 및 수정
-    - name: Fill in the new image ID in the ECS task definition
+    # 6. ECS 작업 정의(Task Definition) 파일 생성
+   
+    - name: Create ECS Task Definition
       id: task-def
       run: |
-        # 🛑 [수정] Task Family 이름 'project-app-task'를 직접 사용
-        aws ecs describe-task-definition --task-definition "project-app-task" --query taskDefinition > task-definition.json
-
-        IMAGE_URL=${{ steps.build-image.outputs.image }}
-
-        # ------------------------------------------------------------------
-        # 🛑 [수정] command 필드를 명시적으로 삽입 (Gunicorn CORS 옵션 포함)
-        # ------------------------------------------------------------------
-        # JSON 배열 문자열 (Gunicorn 명령)
-        COMMAND_ARRAY='["gunicorn", "--bind", "0.0.0.0:80", "--header", "Access-Control-Allow-Origin: *", "--header", "Access-Control-Allow-Credentials: true", "app:app"]'
-
-        # jq 명령: 이미지, 환경 변수, 그리고 command 필드를 업데이트
-        jq --arg IMAGE_URL "$IMAGE_URL" \
-           --arg DB_HOST "${{ secrets.DB_HOST }}" \
-           --arg DB_NAME "${{ secrets.DB_NAME }}" \
-           --arg DB_USER "${{ secrets.DB_USER }}" \
-           --arg DB_PASSWORD "${{ secrets.DB_PASSWORD }}" \
-           --argjson COMMAND_ARRAY "$COMMAND_ARRAY" \
-           '.containerDefinitions[0].image = $IMAGE_URL |
-            .containerDefinitions[0].command = $COMMAND_ARRAY |  # ⬅️ command 필드 삽입
+        aws ecs describe-task-definition --task-definition ${{ secrets.ECS_TASK_FAMILY }} --query taskDefinition > task-definition.json
+        
+        # 셸 스크립트(jq)를 사용하여 JSON 파일 수정
+        # 1. 'image' 키 값을 새 이미지 URL로 변경
+        # 2. 'environment' 키에 DB 접속 정보(시크릿) 추가
+        # 3. 호환되지 않는 키(status, compatibilities 등) 제거
+        jq --arg IMAGE_URL ${{ steps.build-image.outputs.image }} \
+           --arg DB_HOST ${{ secrets.DB_HOST }} \
+           --arg DB_NAME ${{ secrets.DB_NAME }} \
+           --arg DB_USER ${{ secrets.DB_USER }} \
+           --arg DB_PASSWORD ${{ secrets.DB_PASSWORD }} \
+           --arg ECS_CONTAINER_NAME ${{ secrets.ECS_CONTAINER_NAME }} \
+           '.containerDefinitions[0].image = $IMAGE_URL | 
             .containerDefinitions[0].environment = [
               {"name": "DB_HOST", "value": $DB_HOST},
               {"name": "DB_NAME", "value": $DB_NAME},
               {"name": "DB_USER", "value": $DB_USER},
               {"name": "DB_PASSWORD", "value": $DB_PASSWORD}
-            ] |
+            ] | 
             del(.taskDefinitionArn) | 
             del(.revision) | 
             del(.status) | 
@@ -90,6 +85,7 @@ jobs:
         echo "::set-output name=task_arn::$(cat task-arn.txt)"
 
     # 8. ECS 서비스 업데이트 (배포)
+ 
     - name: Deploy to ECS Service
       run: |
         aws ecs update-service \
