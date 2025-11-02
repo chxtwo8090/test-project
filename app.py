@@ -2,7 +2,7 @@ import os
 import pymysql
 import bcrypt
 import jwt
-# import requests ⬅️ [제거] 네트워크 문제로 사용 안 함
+import requests  # ⬅️ [필수] OpenAPI 호출을 위해 임포트
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify
@@ -121,7 +121,7 @@ def login_user():
             user = cursor.fetchone()
             if not user: return jsonify({"message": "아이디 또는 비밀번호를 잘못 입력했습니다."}), 401
             if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-                return jsonify({"message": "아이디 또는 비밀번호를 잘못 입력했습니다."}), 401
+                return jsonify({"message": "아이디 또는 비밀번호를 잘못했습니다."}), 401
             payload = {'user_id': user['user_id'], 'nickname': user['nickname'], 'exp': datetime.utcnow() + timedelta(hours=24)}
             token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
             return jsonify({"message": "로그인 성공", "token": token, "user_id": user['user_id'], "nickname": user['nickname']}), 200
@@ -309,12 +309,60 @@ def create_comment(post_id):
         if conn: conn.close()
 
 # =======================================================
-# 11. [수정됨] 금융 정보 API (Mock Data 사용)
+# 11. [수정됨] 금융 정보 API (OpenAPI 사용)
 # =======================================================
+@app.route('/api/finance/summary', methods=['GET'])
+def get_finance_summary():
+    """네이버 실시간 지수 API를 호출하여 KOSPI, KOSDAQ 정보를 반환합니다."""
+    
+    url = "https://api.finance.beta.naver.com/naverpay/api/public/realtime/domestic/stock/major"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
+    try:
+        # 💡 Terraform 인프라 수정 후, 이 네트워크 요청이 성공해야 합니다.
+        response = requests.get(url, headers=headers)
+        response.raise_for_status() 
+        
+        data = response.json()
+        
+        kospi_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSPI')
+        kosdaq_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSDAQ')
+
+        kospi_change_sign = kospi_data.get('fluctuationsSign', '')
+        kospi_change_val = kospi_data.get('fluctuations', '0')
+        kospi_change_ratio = kospi_data.get('fluctuationsRatio', '0')
+        
+        kosdaq_change_sign = kosdaq_data.get('fluctuationsSign', '')
+        kosdaq_change_val = kosdaq_data.get('fluctuations', '0')
+        kosdaq_change_ratio = kosdaq_data.get('fluctuationsRatio', '0')
+
+        return jsonify({
+            "kospi": {
+                "value": kospi_data.get('closePrice'),
+                "change": f"{kospi_change_sign}{kospi_change_val} ({kospi_change_ratio}%)"
+            },
+            "kosdaq": {
+                "value": kosdaq_data.get('closePrice'),
+                "change": f"{kosdaq_change_sign}{kosdaq_change_val} ({kosdaq_change_ratio}%)"
+            }
+        }), 200
+
+    except Exception as e:
+        error_detail = str(e)
+        print(f"금융 정보 API 호출 오류: {error_detail}")
+        
+        return jsonify({
+            "error": "실시간 금융 정보를 가져오는 데 실패했습니다.", 
+            "detail": error_detail # ⬅️ 네트워크 오류(DNS)가 발생하면 여기에 표시됩니다.
+        }), 400
+
 # =======================================================
-# 11. [신규] LLM 챗봇 API (Mock Response)
+# 12. [신규] LLM 챗봇 API (Mock Response)
 # =======================================================
 @app.route('/api/llm/chat', methods=['POST'])
+@token_required # ⬅️ 챗봇 기능도 로그인한 사용자만 쓰도록 설정
 def llm_chat():
     """사용자 질문에 대해 LLM이 응답하는 Mock API"""
     data = request.get_json()
@@ -336,7 +384,7 @@ def llm_chat():
     }), 200
 
 # =======================================================
-# 12. Gunicorn 또는 로컬 테스트용 실행
+# 13. Gunicorn 또는 로컬 테스트용 실행
 # =======================================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=True)
