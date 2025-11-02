@@ -129,3 +129,163 @@ resource "aws_s3_bucket_policy" "frontend" {
   # public_access_block이 적용되기 전에 policy가 적용될 수 있도록 의존성 추가
   depends_on = [aws_s3_bucket_public_access_block.frontend]
 }
+resource "random_string" "llm_tg_suffix" {
+  length  = 8
+  special = false
+  upper   = false
+  number  = false
+  lifecycle {
+    ignore_changes = all
+  }
+}
+# ===============================================
+# 7. LLM 모델 S3 참조 및 IAM 권한 설정 (수정됨)
+# ===============================================
+
+# 7-1. LLM 모델이 저장된 기존 S3 버킷 'chxtwo-git'의 정보 가져오기
+data "aws_s3_bucket" "llm_models" {
+  bucket = "chxtwo-git" 
+}
+
+# 7-2. 기존 ECS Task Execution Role에 S3 읽기 권한을 추가하기 위한 정책 문서
+data "aws_iam_policy_document" "llm_s3_read_policy" {
+  statement {
+    actions = ["s3:GetObject"]
+    resources = ["${data.aws_s3_bucket.llm_models.arn}/*"] 
+  }
+}
+
+# 7-3. Task Execution Role에 S3 읽기 정책 연결
+resource "aws_iam_role_policy" "llm_s3_read_policy_attachment" {
+  name   = "llm-s3-read-access"
+  role   = aws_iam_role.ecs_task_execution_role.id # 기존 Task Role 참조 가정
+  policy = data.aws_iam_policy_document.llm_s3_read_policy.json
+}
+
+# ===============================================
+# 8. LLM 서비스 로드 밸런싱 (신규)
+# ===============================================
+
+# 8-1. LLM 서비스용 타겟 그룹 생성
+resource "aws_lb_target_group" "llm_service_tg" {
+  name     = "llm-tg-${random_string.llm_tg_suffix.result}"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+  target_type = "ip"
+  lifecycle {
+    ignore_changes = [
+      load_balancing_algorithm_type,
+      deregistration_delay,
+      protocol_version
+      # 이 외에도 다른 속성이 있다면 추가할 수 있지만, 'ip' 타입 변경 시 문제가 되는
+      # 내부 의존성을 Terraform이 무시하도록 돕습니다.
+    ]
+  }
+  health_check {
+    path = "/health" 
+    protocol = "HTTP"
+    matcher = "200"
+    interval = 30
+    timeout = 5
+  }
+}
+
+# 8-2. 기존 ALB 리스너에 LLM 경로 규칙 추가
+resource "aws_lb_listener_rule" "llm_rule" {
+  listener_arn = aws_lb_listener.http.arn 
+  priority = 98 
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.llm_service_tg.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/llm/*"] 
+    }
+  }
+}
+
+# ===============================================
+# 9. LLM Fargate 서비스 배포 (신규)
+# ===============================================
+
+# 9-1. LLM 컨테이너 이미지: ECR 리포지토리 설정
+resource "aws_ecr_repository" "llm_repository" {
+  name                 = "${var.project_name}/llm-api-repo"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true 
+}
+
+# 9-2. LLM 서비스용 ECS 태스크 정의 (모델 파일명 및 환경 변수 수정)
+resource "aws_ecs_task_definition" "llm_task" {
+  family                   = "llm-task-family"
+  cpu                      = "4096" # 4 vCPU 할당
+  memory                   = "8192" # 8 GB 메모리 할당
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "llm-api-container"
+      image     = "${aws_ecr_repository.llm_repository.repository_url}:latest" 
+      essential = true
+      portMappings = [
+        {
+          containerPort = 80
+          hostPort      = 80
+        }
+      ]
+      environment = [
+        # S3 다운로드를 위한 환경 변수 주입
+        {
+            name  = "S3_BUCKET_NAME"
+            value = data.aws_s3_bucket.llm_models.id # chxtwo-git
+        },
+        {
+            name  = "S3_MODEL_KEY"
+            value = "gemma-3n-E4B-it-Q4_K_M.gguf" # 🔑 수정된 모델 파일 이름
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "llm-api-log-stream"
+        }
+      }
+    }
+  ])
+}
+
+# 9-3. LLM Fargate 서비스 배포 (클러스터 이름 수정)
+resource "aws_ecs_service" "llm_service" {
+  name            = "llm-fargate-service"
+  cluster         = "project-cluster" # 🔑 수정된 클러스터 이름
+  task_definition = aws_ecs_task_definition.llm_task.arn
+  desired_count   = 1
+
+  launch_type = "FARGATE"
+
+  network_configuration {
+    subnets          = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+    security_groups  = [aws_security_group.allow_all.id] 
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.llm_service_tg.arn
+    container_name   = "llm-api-container"
+    container_port   = 80
+  }
+  
+  depends_on = [
+    aws_lb_listener_rule.llm_rule,
+    aws_iam_role_policy.llm_s3_read_policy_attachment
+  ]
+}

@@ -1,98 +1,161 @@
 name: Project CI/CD Pipeline
 
-# 1. 트리거: 'main' 브랜치에 코드가 푸시(push)될 때마다 실행
 on:
   push:
     branches:
       - main
 
 jobs:
-  build-and-deploy:
+  # 1. 인프라 변경 사항 적용 (Terraform)
+  terraform:
+    name: "Terraform Apply"
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+        
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }} # secrets에 정의된 리전 사용
+
+      - name: Terraform Init
+        run: terraform init -backend-config="bucket=chxtwo-git" # 🔑 S3 Backend 버킷 이름
+        working-directory: ./terraform
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ./terraform
+        # 이 단계에서 LLM ECR, S3 권한, LLM ECS Service가 생성됩니다.
+        
+  # 2. 메인 API (Flask) 이미지 빌드 및 배포 (기존 로직 유지)
+  build-and-deploy-main:
+    name: "Build & Deploy Main API"
+    runs-on: ubuntu-latest
+    needs: [terraform] # 인프라 생성 후 실행
+    
+    # [주의] 이 부분은 기존 main.yml의 복잡한 task-def 업데이트 로직을 유지합니다.
+    # 만약 DB 관련 환경 변수가 ECR에 저장되어 있다면 aws-actions/amazon-ecs-deploy-task로 대체 가능합니다.
+    # 현재는 기존 main.yml의 로직을 따라갑니다.
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REPOSITORY: project/api-repo # 기존 ECR 이름 가정
+          IMAGE_TAG: ${{ github.sha }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "::set-output name=image_uri::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      # 6. 기존 작업 정의(Task Definition) 다운로드
+      - name: Download existing Task Definition
+        id: task-def
+        run: |
+            aws ecs describe-task-definition --task-definition project-task-family --query taskDefinition > task-definition.json
+        
+      # 7. task-definition.json 수정 (이미지 URI 및 환경 변수 주입)
+      - name: Update Task Definition JSON
+        id: update-task-def
+        # [주의] DB 환경 변수를 Secrets에서 가져와 Task Definition에 주입하는 로직을 가정하고 반영했습니다.
+        run: |
+            IMAGE_URL="${{ steps.build-image.outputs.image_uri }}"
+            DB_HOST="${{ secrets.DB_HOST }}"
+            DB_NAME="${{ secrets.DB_NAME }}"
+            DB_USER="${{ secrets.DB_USER }}"
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+
+            jq --arg IMAGE_URL "$IMAGE_URL" \
+               --arg DB_HOST "$DB_HOST" \
+               --arg DB_NAME "$DB_NAME" \
+               --arg DB_USER "$DB_USER" \
+               --arg DB_PASSWORD "$DB_PASSWORD" \
+               '.containerDefinitions[0].image = $IMAGE_URL | 
+                .containerDefinitions[0].environment = [
+                  {"name": "DB_HOST", "value": $DB_HOST},
+                  {"name": "DB_NAME", "value": $DB_NAME},
+                  {"name": "DB_USER", "value": $DB_USER},
+                  {"name": "DB_PASSWORD", "value": $DB_PASSWORD}
+                ] | 
+                del(.taskDefinitionArn) | 
+                del(.revision) | 
+                del(.status) | 
+                del(.requiresAttributes) | 
+                del(.compatibilities) | 
+                del(.registeredAt) | 
+                del(.registeredBy)' \
+               task-definition.json > new-task-definition.json
+            
+            echo "::set-output name=task_definition_json::new-task-definition.json"
+
+      # 8. 새 작업 정의를 ECS에 등록 및 서비스 업데이트
+      - name: Register ECS Task Definition and Deploy
+        run: |
+            TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-definition.json --query taskDefinition.taskDefinitionArn --output text)
+            
+            aws ecs update-service \
+                --cluster project-cluster \
+                --service main-fargate-service \
+                --task-definition $TASK_ARN \
+                --force-new-deployment
+
+  # 3. LLM API (FastAPI) 이미지 빌드 및 배포 (신규)
+  build-and-deploy-llm:
+    name: "Build & Deploy LLM API"
+    runs-on: ubuntu-latest
+    needs: [terraform] # 인프라 생성 후 실행
     
     steps:
-    # 2. GitHub 리포지토리의 코드를 내려받음
-    - name: Checkout Source Code
-      uses: actions/checkout@v3
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
 
-    # 3. AWS 자격 증명 설정 (GitHub Secrets에 등록한 정보 사용)
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-    # 4. AWS ECR(컨테이너 이미지 저장소)에 로그인
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-    # 5. Docker 이미지 빌드 및 ECR로 푸시
-    #    (이때 'latest'와 GitHub 커밋 해시(SHA) 두 개의 태그를 붙임)
-    - name: Build, tag, and push image to Amazon ECR
-      id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:latest .
-        docker build -t $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:latest
-        docker push $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
-        echo "::set-output name=image::$ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG"
+      - name: Build, tag, and push LLM image to Amazon ECR
+        id: build-llm-image
+        env:
+          ECR_REPOSITORY: project/llm-api-repo # Terraform ECR 이름과 일치
+          IMAGE_TAG: ${{ github.sha }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          # llm.Dockerfile을 사용하여 이미지 빌드 (루트 디렉토리)
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f llm.Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "::set-output name=image_uri::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-    # 6. ECS 작업 정의(Task Definition) 파일 생성
-    #    Terraform에서 만든 임시(nginx) 작업 정의를 기반으로,
-    #    방금 푸시한 '새 이미지 주소'와 'DB 환경변수'를 주입하여 
-    #    'task-definition.json' 파일을 동적으로 생성합니다.
-    - name: Create ECS Task Definition
-      id: task-def
-      run: |
-        aws ecs describe-task-definition --task-definition ${{ secrets.ECS_TASK_FAMILY }} --query taskDefinition > task-definition.json
-        
-        # 셸 스크립트(jq)를 사용하여 JSON 파일 수정
-        # 1. 'image' 키 값을 새 이미지 URL로 변경
-        # 2. 'environment' 키에 DB 접속 정보(시크릿) 추가
-        # 3. 호환되지 않는 키(status, compatibilities 등) 제거
-        jq --arg IMAGE_URL ${{ steps.build-image.outputs.image }} \
-           --arg DB_HOST ${{ secrets.DB_HOST }} \
-           --arg DB_NAME ${{ secrets.DB_NAME }} \
-           --arg DB_USER ${{ secrets.DB_USER }} \
-           --arg DB_PASSWORD ${{ secrets.DB_PASSWORD }} \
-           --arg ECS_CONTAINER_NAME ${{ secrets.ECS_CONTAINER_NAME }} \
-           '.containerDefinitions[0].image = $IMAGE_URL | 
-            .containerDefinitions[0].environment = [
-              {"name": "DB_HOST", "value": $DB_HOST},
-              {"name": "DB_NAME", "value": $DB_NAME},
-              {"name": "DB_USER", "value": $DB_USER},
-              {"name": "DB_PASSWORD", "value": $DB_PASSWORD}
-            ] | 
-            del(.taskDefinitionArn) | 
-            del(.revision) | 
-            del(.status) | 
-            del(.requiresAttributes) | 
-            del(.compatibilities) | 
-            del(.registeredAt) | 
-            del(.registeredBy)' \
-           task-definition.json > new-task-definition.json
-        
-        echo "::set-output name=task_definition_json::new-task-definition.json"
-
-    # 7. 새 작업 정의를 ECS에 등록
-    - name: Register ECS Task Definition
-      id: register-task
-      run: |
-        aws ecs register-task-definition --cli-input-json file://${{ steps.task-def.outputs.task_definition_json }} --query taskDefinition.taskDefinitionArn > task-arn.txt
-        echo "::set-output name=task_arn::$(cat task-arn.txt)"
-
-    # 8. ECS 서비스 업데이트 (배포)
-    #    ECS 서비스가 7단계에서 등록한 새 작업 정의(task_arn)를 사용하도록
-    #    업데이트하고, 'force-new-deployment' 옵션으로 즉시 재배포합니다.
-    - name: Deploy to ECS Service
-      run: |
-        aws ecs update-service \
-          --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
-          --service ${{ secrets.ECS_SERVICE_NAME }} \
-          --task-definition ${{ steps.register-task.outputs.task_arn }} \
-          --force-new-deployment
+      - name: Deploy LLM ECS service
+        uses: aws-actions/amazon-ecs-deploy-task@v1
+        with:
+          service: llm-fargate-service # main.tf에서 정의한 서비스 이름
+          cluster: project-cluster # 🔑 수정된 클러스터 이름
+          task-definition: llm-task-family # main.tf에서 정의한 Task Definition Family
+          image: llm-api-container=${{ steps.build-llm-image.outputs.image_uri }}
