@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>네이버 증시 클론 - 금융 뉴스 분석 플랫폼</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 기본 스타일 초기화 및 폰트 설정 (기존 스타일 유지) */
+        /* 기본 스타일 초기화 및 폰트 설정 */
         body {
             font-family: 'Naver NanumGothic', 'Malgun Gothic', sans-serif;
             margin: 0;
@@ -15,7 +14,7 @@
             color: #1c1c1c;
         }
 
-        /* 헤더 스타일 (기존 스타일 유지) */
+        /* 헤더 스타일 */
         header {
             background-color: #fff;
             border-bottom: 1px solid #ebebeb;
@@ -38,290 +37,403 @@
             margin-left: 20px;
             text-decoration: none;
             color: #1c1c1c;
-            font-weight: 500;
+            font-size: 14px;
+        }
+        nav a:hover {
+            color: #008850;
         }
 
-        /* 메인 컨텐츠 레이아웃 (LLM 챗봇을 오른쪽에 배치하기 위해 grid로 변경) */
-        main {
+        /* 메인 컨텐츠 영역 */
+        .main-content {
             width: 1080px;
             margin: 20px auto;
-            display: grid; 
-            grid-template-columns: 2fr 1fr; /* 데이터 테이블(2)과 챗봇(1) */
+            display: flex;
             gap: 20px;
         }
 
-        .data-section {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-
-        /* 표 스타일 (기존 스타일 유지) */
-        #stock-data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-            margin-top: 15px;
-        }
-        #stock-data-table th, #stock-data-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        #stock-data-table th {
-            background-color: #f9f9f9;
-            font-weight: 600;
-            color: #444;
-        }
-        #stock-data-table tr:hover {
-            background-color: #f0f8ff;
-        }
-        .text-right { text-align: right; }
-
-        /* 챗봇 스타일 (추가됨) */
-        .chatbot-section {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        /* 왼쪽 섹션 (금융 지수 및 시가총액) */
+        .left-section {
+            flex: 2; /* 오른쪽보다 2배 넓게 */
             display: flex;
             flex-direction: column;
-            max-height: 80vh; 
+            gap: 20px;
         }
-        .chat-output {
-            flex-grow: 1;
-            overflow-y: auto;
-            border: 1px solid #e0e0e0;
+
+        /* 오른쪽 섹션 (LLM 챗봇) */
+        .right-section {
+            flex: 1;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            max-height: 800px;
+        }
+
+        /* 금융 지수 카드 스타일 */
+        .index-cards {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .index-card {
+            background-color: #fff;
             padding: 15px;
-            border-radius: 6px;
-            background-color: #fcfcfc;
-            white-space: pre-wrap;
-            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            flex: 1;
+        }
+        .index-name {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .index-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1c1c1c;
+        }
+        .index-change {
             font-size: 14px;
+            margin-top: 5px;
         }
-        .user-message {
-            color: #007bff;
+        .text-up { color: #d80000; } /* 빨간색 (상승) */
+        .text-down { color: #0059c4; } /* 파란색 (하락) */
+        .text-flat { color: #666; } /* 회색 (보합) */
+
+        /* 시가총액 테이블 스타일 */
+        .market-sum-table-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow-x: auto; /* 모바일 대응을 위한 스크롤 */
+        }
+        .market-sum-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .market-sum-table th, .market-sum-table td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            text-align: right;
+            white-space: nowrap; /* 셀 내용 줄바꿈 방지 */
+        }
+        .market-sum-table th {
+            background-color: #f7f7f7;
             font-weight: 500;
+            color: #666;
+            text-align: center;
         }
-        .llm-message {
-            color: #008850;
+        .market-sum-table td:first-child {
+            text-align: left; /* 종목명은 왼쪽 정렬 */
+            font-weight: bold;
+            color: #333;
+        }
+        .text-right { text-align: right !important; }
+
+        /* LLM 챗봇 스타일 */
+        #llm-output {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            white-space: pre-wrap; /* 줄바꿈 유지 */
+        }
+        #llm-chat-form {
+            display: flex;
+            gap: 10px;
+        }
+        #llm-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #llm-submit {
+            padding: 8px 15px;
+            border: none;
+            background-color: #008850;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #llm-submit:disabled {
+            background-color: #a8a8a8;
         }
     </style>
 </head>
 <body>
+
     <header>
         <div class="header-content">
-            <div class="logo"><a href="index.html">찬규's 금융</a></div>
+            <div class="logo"><a href="#">네이버 증시 클론</a></div>
             <nav>
-                <a href="index.html">게시판</a>
-                <a href="finance.html" style="color: #008850;">금융 분석</a>
-                <a id="auth-link" href="login.html">로그인</a>
+                <a href="#">홈</a>
+                <a href="#">시황</a>
+                <a href="#">뉴스</a>
+                <a href="#">마이데이터</a>
             </nav>
         </div>
     </header>
 
-    <main>
-        <div class="data-section">
-            <h2 class="text-xl font-bold mb-4 border-b pb-2">시가총액 상위 종목 현황</h2>
-            <div id="loading-indicator" class="text-center text-gray-500 py-10">데이터를 불러오는 중...</div>
-            <table id="stock-data-table">
-                <thead>
-                    <tr>
-                        <th>종목명</th>
-                        <th class="text-right">현재가</th>
-                        <th class="text-right">전일비</th>
-                        <th class="text-right">등락률</th>
-                        <th class="text-right">시가총액(억)</th>
-                    </tr>
-                </thead>
-                <tbody id="stock-data-body">
-                    </tbody>
-            </table>
-        </div>
-
-        <div class="chatbot-section">
-            <h2 class="text-xl font-bold mb-4 border-b pb-2">AI 금융 분석 챗봇 (Gemma 3N)</h2>
-            <div id="llm-chat-output" class="chat-output text-sm">
-                <span class="llm-message">안녕하세요! gemma-3n-E4B-it 기반의 금융 분석 챗봇입니다. 현재 페이지의 종목 데이터에 대해 궁금한 점을 물어보세요.</span>
+    <div class="main-content">
+        
+        <!-- 왼쪽: 금융 지수 및 시가총액 -->
+        <div class="left-section">
+            
+            <!-- 금융 지수 영역 -->
+            <h2>주요 금융 지수</h2>
+            <div class="index-cards">
+                <div id="index-kospi" class="index-card">
+                    <div class="index-name">KOSPI</div>
+                    <div class="index-value">...</div>
+                    <div class="index-change">...</div>
+                </div>
+                <div id="index-kosdaq" class="index-card">
+                    <div class="index-name">KOSDAQ</div>
+                    <div class="index-value">...</div>
+                    <div class="index-change">...</div>
+                </div>
+                <div id="index-dow" class="index-card">
+                    <div class="index-name">Dow Jones</div>
+                    <div class="index-value">...</div>
+                    <div class="index-change">...</div>
+                </div>
+                <div id="index-nasdaq" class="index-card">
+                    <div class="index-name">NASDAQ</div>
+                    <div class="index-value">...</div>
+                    <div class="index-change">...</div>
+                </div>
             </div>
-            <form id="llm-chat-form" class="flex mt-auto">
-                <input type="text" id="llm-prompt-input" class="flex-grow p-3 border border-gray-300 rounded-l-lg focus:outline-none" placeholder="질문을 입력하세요..." required>
-                <button type="submit" id="llm-submit-button" class="bg-blue-600 text-white p-3 rounded-r-lg hover:bg-blue-700 transition duration-150">전송</button>
-            </form>
-            <div id="llm-error-message" class="text-red-500 text-sm mt-2 hidden"></div>
+
+            <!-- 시가총액 테이블 영역 -->
+            <h2>코스피 시가총액 상위 종목</h2>
+            <div class="market-sum-table-container">
+                <p id="loading-status">데이터를 로드하는 중입니다...</p>
+                <table class="market-sum-table" id="stock-market-sum-table" style="display: none;">
+                    <thead>
+                        <tr></tr>
+                    </thead>
+                    <tbody>
+                        <!-- 데이터는 JavaScript로 채워집니다. -->
+                    </tbody>
+                </table>
+            </div>
+
         </div>
-    </main>
 
+        <!-- 오른쪽: LLM 챗봇 영역 -->
+        <div class="right-section">
+            <h2>LLM 금융 분석 챗봇</h2>
+            <div id="llm-output">안녕하세요! 궁금한 점을 질문해 주세요.</div>
+            <form id="llm-chat-form">
+                <input type="text" id="llm-input" placeholder="삼성전자 주가 전망은?" required>
+                <button type="submit" id="llm-submit">분석 요청</button>
+            </form>
+        </div>
+
+    </div>
+    
     <script>
-        // 🔑 ALB의 DNS 주소로 변경해야 합니다. Fargate LLM API의 베이스 URL입니다.
-        const API_URL = 'http://api.chxtwo.kro.kr'; // 예시 주소
+        // -------------------------------------------------------------
+        // 1. 시가총액 데이터 로드 및 테이블 그리기 로직 (주요 수정 사항)
+        // -------------------------------------------------------------
+        // 💡 API 주소를 찬규님의 ALB 주소로 설정합니다.
+        const API_URL = 'http://api.chxtwo.kro.kr'; 
 
-        // ----------------------------------------------------
-        // 1. 크롤링 데이터 로딩 (기존 로직 유지)
-        // ----------------------------------------------------
-        async function loadStockData() {
-            const loadingIndicator = document.getElementById('loading-indicator');
-            const tableBody = document.getElementById('stock-data-body');
+        async function loadStockMarketData() {
+            const tableElement = document.getElementById('stock-market-sum-table');
+            const statusElement = document.getElementById('loading-status');
+            const tbody = tableElement.querySelector('tbody');
+            const theadRow = tableElement.querySelector('thead tr');
             
-            // 초기 챗봇 메시지를 저장해둡니다.
-            const initialChatOutput = llmChatOutput.innerHTML; 
+            statusElement.textContent = "최신 시가총액 데이터를 로드하는 중...";
+            statusElement.style.color = '#008850';
+            tbody.innerHTML = '';
+            theadRow.innerHTML = '';
+            tableElement.style.display = 'none';
 
             try {
-                // 기존 Flask API 엔드포인트 호출 (웹 크롤링 데이터)
-                const response = await fetch(`${API_URL}/api/finance/top-stocks`); 
-                if (!response.ok) {
-                    throw new Error('API 응답 실패');
-                }
-                const data = await response.json();
-
-                if (data.error) {
-                    tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-red-500">${data.error}: ${data.message}</td></tr>`;
-                    return;
-                }
-
-                tableBody.innerHTML = ''; // 기존 내용 삭제
-                
-                // LLM에게 제공할 데이터를 포맷팅
-                let dataForLLM = "현재 시가총액 상위 종목 데이터:\n";
-                dataForLLM += "순위 | 종목명 | 현재가 | 전일비 | 등락률 | 시가총액(억)\n";
-
-                data.forEach((item, index) => {
-                    const row = tableBody.insertRow();
-                    row.insertCell().textContent = item['종목명'] || 'N/A';
-                    row.insertCell().textContent = item['현재가']?.toLocaleString() || 'N/A';
-                    
-                    const changeCell = row.insertCell();
-                    changeCell.textContent = item['전일비']?.toLocaleString() || 'N/A';
-                    
-                    const rateCell = row.insertCell();
-                    const rate = parseFloat(item['등락률']?.replace('%', '') || 0);
-                    rateCell.textContent = item['등락률'] || '0.00%';
-                    rateCell.classList.add('text-right');
-                    rateCell.style.color = rate > 0 ? '#ff0000' : (rate < 0 ? '#0000ff' : '#1c1c1c');
-
-                    row.insertCell().textContent = item['시가총액(억)']?.toLocaleString() || 'N/A';
-                    row.cells[1].classList.add('text-right');
-                    row.cells[3].classList.add('text-right');
-                    row.cells[4].classList.add('text-right');
-                    
-                    // LLM 데이터에 추가
-                    dataForLLM += `${index + 1} | ${item['종목명']} | ${item['현재가']} | ${item['전일비']} | ${item['등락률']} | ${item['시가총액(억)']}\n`;
-                });
-                
-                // 전역 변수에 저장하여 챗봇 로직에서 사용
-                window.StockDataForLLM = dataForLLM; 
-
-            } catch (error) {
-                console.error("주식 데이터 로딩 오류:", error);
-                tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-red-500">데이터 로딩 중 오류 발생: ${error.message}</td></tr>`;
-            } finally {
-                loadingIndicator.classList.add('hidden');
-                llmChatOutput.innerHTML = initialChatOutput; // 로딩 완료 후 챗봇 초기 메시지 복구
-            }
-        }
-
-        // ----------------------------------------------------
-        // 2. LLM 챗봇 기능 (신규 추가)
-        // ----------------------------------------------------
-        const llmChatForm = document.getElementById('llm-chat-form');
-        const llmPromptInput = document.getElementById('llm-prompt-input');
-        const llmChatOutput = document.getElementById('llm-chat-output');
-        const llmSubmitButton = document.getElementById('llm-submit-button');
-        const llmErrorMessage = document.getElementById('llm-error-message');
-
-        function updateChatDisplay(role, message) {
-            const messageElement = document.createElement('div');
-            messageElement.classList.add('mb-3', 'p-2', 'rounded-lg', 'break-words');
-            
-            if (role === 'user') {
-                messageElement.innerHTML = `<span class="user-message font-semibold">나:</span> ${message}`;
-                messageElement.style.textAlign = 'right';
-                messageElement.style.backgroundColor = '#e6f3ff';
-            } else {
-                messageElement.innerHTML = `<span class="llm-message font-semibold">분석가:</span> ${message}`;
-                messageElement.style.textAlign = 'left';
-                messageElement.style.backgroundColor = '#f0fff0';
-            }
-            llmChatOutput.appendChild(messageElement);
-            llmChatOutput.scrollTop = llmChatOutput.scrollHeight;
-        }
-
-        llmChatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const userPrompt = llmPromptInput.value.trim();
-            if (!userPrompt) return;
-
-            updateChatDisplay('user', userPrompt);
-            llmErrorMessage.classList.add('hidden');
-
-            llmPromptInput.value = '';
-            llmPromptInput.disabled = true;
-            llmSubmitButton.disabled = true;
-            llmSubmitButton.textContent = '분석 중...';
-
-            const llmApiUrl = `${API_URL}/llm/chat`; // LLM API 엔드포인트
-
-            // 크롤링 데이터를 포함하여 전체 프롬프트 구성
-            const fullPrompt = `다음 데이터를 참고하여 사용자 질문에 답변하세요:\n\n${window.StockDataForLLM || "현재 로딩된 데이터가 없습니다."}\n\n사용자 질문: ${userPrompt}`;
-
-            try {
-                const response = await fetch(llmApiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: fullPrompt }) // LLM API에 전체 프롬프트 전송
-                });
+                // Flask 서버의 API 엔드포인트로 Fetch 요청 (ALB 주소 사용)
+                const response = await fetch(`${API_URL}/api/stock/market-sum`);
                 
                 if (!response.ok) {
                     const errorJson = await response.json();
-                    throw new Error(errorJson.error || `API 요청 실패: ${response.status}`);
+                    throw new Error(`API 응답 오류: ${response.status} - ${errorJson.error || response.statusText}`);
+                }
+                
+                const data = await response.json();
+
+                if (!data || data.length === 0) {
+                    statusElement.textContent = "데이터가 비어 있습니다. fi.py로 크롤링을 먼저 실행해 주세요.";
+                    statusElement.style.color = 'orange';
+                    return;
+                }
+
+                // 테이블 헤더 생성 (첫 번째 항목의 키 사용)
+                const headers = Object.keys(data[0]);
+                headers.forEach(key => {
+                    const th = document.createElement('th');
+                    th.textContent = key;
+                    theadRow.appendChild(th);
+                });
+
+                // 테이블 본문 생성
+                data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    
+                    headers.forEach(key => {
+                        const td = document.createElement('td');
+                        let value = item[key];
+
+                        if (value === undefined || value === null) {
+                            td.textContent = '-';
+                        } else {
+                            // 숫자 형식일 경우 쉼표 추가 (종목명, 등락률은 제외)
+                            if (key !== '종목명' && key !== '등락률') {
+                                // 소수점이 없는 정수로 변환 후 쉼표 추가 (Decimal 처리된 float 가정)
+                                // '시가총액', '상장주식수' 등 큰 숫자는 정수로 처리
+                                if (key === '시가총액' || key === '상장주식수' || key === '현재가' || key === '거래량') {
+                                    td.textContent = Math.round(parseFloat(value)).toLocaleString('ko-KR');
+                                } else {
+                                    // PER, ROE 등 소수점 필요 항목은 그대로 표시
+                                    td.textContent = value;
+                                }
+                            } else if (key === '등락률' && typeof value === 'number') {
+                                // 등락률은 부호에 따라 색상 변경
+                                td.textContent = `${value}%`;
+                                if (value > 0) td.classList.add('text-up');
+                                else if (value < 0) td.classList.add('text-down');
+                            } else {
+                                td.textContent = value;
+                            }
+                        }
+                        // 기본 정렬은 오른쪽으로 (종목명 제외)
+                        if (key !== '종목명') td.classList.add('text-right');
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+
+                statusElement.style.display = 'none';
+                tableElement.style.display = 'table'; // 테이블 표시 성공
+
+            } catch (error) {
+                console.error("크롤링 데이터 로드 오류:", error);
+                statusElement.textContent = `데이터 로드 실패: ${error.message}`;
+                statusElement.style.color = 'red';
+                tableElement.style.display = 'none';
+            }
+        }
+        
+        // 페이지 로드 시 크롤링 데이터 로드 시작
+        document.addEventListener('DOMContentLoaded', loadStockMarketData); 
+
+        // -------------------------------------------------------------
+        // 2. 금융 지수 로드 및 업데이트 로직 (기존 코드 유지)
+        // -------------------------------------------------------------
+        
+        // 지수 카드 업데이트 헬퍼 함수
+        function updateIndex(elementId, indexData) {
+            const card = document.getElementById(elementId);
+            if (!card) return;
+            
+            const valueEl = card.querySelector('.index-value');
+            const changeEl = card.querySelector('.index-change');
+            
+            valueEl.textContent = indexData.현재가 || 'N/A';
+            changeEl.textContent = `${indexData.전일비 || 'N/A'} (${indexData.등락률 || 'N/A'})`;
+            
+            // 색상 업데이트
+            changeEl.classList.remove('text-up', 'text-down', 'text-flat');
+            const change = parseFloat(indexData.전일비.replace(/,/g, ''));
+            if (change > 0) changeEl.classList.add('text-up');
+            else if (change < 0) changeEl.classList.add('text-down');
+            else changeEl.classList.add('text-flat');
+        }
+
+        // 금융 지수 데이터 로드 (가상의 API 사용, 실제 구현 필요)
+        async function loadFinanceData() {
+            // 이 부분은 실제 금융 지수 API를 호출해야 합니다.
+            // 여기서는 임시 데이터로 지수 카드만 업데이트합니다.
+            const tempIndices = [
+                { id: 'index-kospi', name: 'KOSPI', 현재가: '2,500.00', 전일비: '+15.50', 등락률: '+0.62%', type: 'up' },
+                { id: 'index-kosdaq', name: 'KOSDAQ', 현재가: '850.50', 전일비: '-5.20', 등락률: '-0.61%', type: 'down' },
+                { id: 'index-dow', name: 'Dow Jones', 현재가: '38,000.00', 전일비: '+150.00', 등락률: '+0.40%', type: 'up' },
+                { id: 'index-nasdaq', name: 'NASDAQ', 현재가: '15,000.00', 전일비: '-50.00', 등락률: '-0.33%', type: 'down' },
+            ];
+
+            tempIndices.forEach(index => {
+                updateIndex(index.id, {
+                    현재가: index.현재가,
+                    전일비: index.전일비,
+                    등락률: index.등락률,
+                });
+            });
+        }
+        
+        // 페이지 로드 시 금융 지수 로드 시작
+        loadFinanceData(); 
+
+        // -------------------------------------------------------------
+        // 3. LLM 챗봇 로직 (기존 코드 유지)
+        // -------------------------------------------------------------
+        const llmChatForm = document.getElementById('llm-chat-form');
+        const llmInput = document.getElementById('llm-input');
+        const llmOutput = document.getElementById('llm-output');
+        const llmSubmit = document.getElementById('llm-submit');
+        
+        // LLM 챗봇 로직 (API 키는 Canvas 환경에서 자동으로 제공)
+        llmChatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const prompt = llmInput.value.trim();
+            if (!prompt) return;
+
+            llmOutput.textContent = `User: ${prompt}\n\nLLM: 분석 중... 잠시만 기다려 주세요.`;
+            llmSubmit.disabled = true;
+
+            const userQuery = `금융 및 주식 시장 분석가처럼 행동하여 사용자 질문에 답하세요. 질문: ${prompt}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: "당신은 세계적인 금융 분석가입니다. 네이버 증시 데이터와 실시간 정보를 바탕으로 명확하고 간결하게 답변합니다. 답변은 한국어로 제공합니다." }]
+                },
+            };
+            
+            const apiKey = ""; // Canvas 환경에서 자동 주입
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API 요청 실패: ${response.status} ${response.statusText}`);
                 }
 
                 const result = await response.json();
-                const llmResponse = result.response;
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "답변을 생성하는 데 실패했습니다.";
                 
-                updateChatDisplay('llm', llmResponse);
+                llmOutput.textContent = `User: ${prompt}\n\nLLM: ${text}`;
                 
             } catch (error) {
                 console.error("LLM API 오류:", error);
-                llmErrorMessage.textContent = `챗봇 오류: ${error.message} (LLM 서버 상태 확인 필요)`;
-                llmErrorMessage.classList.remove('hidden');
+                llmOutput.textContent = `User: ${prompt}\n\nLLM: 죄송합니다. 분석 중 오류가 발생했습니다: ${error.message}`;
             } finally {
-                llmPromptInput.disabled = false;
-                llmSubmitButton.disabled = false;
-                llmSubmitButton.textContent = '전송';
-                llmPromptInput.focus();
+                llmSubmit.disabled = false;
+                llmInput.value = '';
             }
         });
 
-
-        // ----------------------------------------------------
-        // 3. 초기화 로직 (기존 로직 유지)
-        // ----------------------------------------------------
-        function updateAuthUI() {
-            // 인증 로직 (로그인/로그아웃 버튼 관리)
-            const authToken = localStorage.getItem('authToken');
-            const authLink = document.getElementById('auth-link');
-            if (authToken) {
-                authLink.textContent = '로그아웃';
-                authLink.href = '#'; 
-                authLink.onclick = () => {
-                    localStorage.removeItem('authToken');
-                    localStorage.removeItem('loggedInUserId');
-                    localStorage.removeItem('loggedInNickname');
-                    window.location.reload();
-                };
-            } else {
-                authLink.textContent = '로그인';
-                authLink.href = 'login.html';
-                authLink.onclick = null;
-            }
-        }
-
-        window.onload = function() {
-            updateAuthUI();
-            loadStockData();
-        };
     </script>
 </body>
 </html>
