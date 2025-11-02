@@ -44,28 +44,38 @@ jobs:
 
     # 6. ECS 작업 정의(Task Definition) 파일 생성
    
-    - name: Create ECS Task Definition
+    - name: Fill in the new image ID in the ECS task definition
       id: task-def
+      # Task Definition JSON을 가져오는 과정 (생략)
       run: |
-        aws ecs describe-task-definition --task-definition ${{ secrets.ECS_TASK_FAMILY }} --query taskDefinition > task-definition.json
-        
-        # 셸 스크립트(jq)를 사용하여 JSON 파일 수정
-        # 1. 'image' 키 값을 새 이미지 URL로 변경
-        # 2. 'environment' 키에 DB 접속 정보(시크릿) 추가
-        # 3. 호환되지 않는 키(status, compatibilities 등) 제거
-        jq --arg IMAGE_URL ${{ steps.build-image.outputs.image }} \
-           --arg DB_HOST ${{ secrets.DB_HOST }} \
-           --arg DB_NAME ${{ secrets.DB_NAME }} \
-           --arg DB_USER ${{ secrets.DB_USER }} \
-           --arg DB_PASSWORD ${{ secrets.DB_PASSWORD }} \
-           --arg ECS_CONTAINER_NAME ${{ secrets.ECS_CONTAINER_NAME }} \
-           '.containerDefinitions[0].image = $IMAGE_URL | 
+        # 기존 task-definition.json을 task-definition.json 파일로 저장하는 과정
+        aws ecs describe-task-definition --task-definition ${{ secrets.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json
+
+        IMAGE_URL=${{ steps.build-image.outputs.image }}
+        # 환경 변수 설정 (DB_HOST 등)은 그대로 유지
+
+        # ------------------------------------------------------------------
+        # 🛑 [수정] command 필드를 명시적으로 삽입하는 jq 명령 추가 
+        # ------------------------------------------------------------------
+        # Dockerfile의 CMD를 Task Definition JSON에 강제 삽입합니다.
+        # 이때 JSON 배열로 값을 넣어줘야 합니다.
+        COMMAND_ARRAY='["gunicorn", "--bind", "0.0.0.0:80", "--header", "Access-Control-Allow-Origin: *", "--header", "Access-Control-Allow-Credentials: true", "app:app"]'
+
+        # 기존 jq 명령 수정
+        jq --arg IMAGE_URL "$IMAGE_URL" \
+           --arg DB_HOST "${{ secrets.DB_HOST }}" \
+           --arg DB_NAME "${{ secrets.DB_NAME }}" \
+           --arg DB_USER "${{ secrets.DB_USER }}" \
+           --arg DB_PASSWORD "${{ secrets.DB_PASSWORD }}" \
+           --argjson COMMAND_ARRAY "$COMMAND_ARRAY" \
+           '.containerDefinitions[0].image = $IMAGE_URL |
+            .containerDefinitions[0].command = $COMMAND_ARRAY |  # ⬅️ 이 라인 추가
             .containerDefinitions[0].environment = [
               {"name": "DB_HOST", "value": $DB_HOST},
               {"name": "DB_NAME", "value": $DB_NAME},
               {"name": "DB_USER", "value": $DB_USER},
               {"name": "DB_PASSWORD", "value": $DB_PASSWORD}
-            ] | 
+            ] |
             del(.taskDefinitionArn) | 
             del(.revision) | 
             del(.status) | 
