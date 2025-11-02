@@ -2,4 +2,4 @@ mysql -h project-db.c5c0amq4q6oi.ap-northeast-2.rds.amazonaws.com \
       -u admin \
       -p project_db
 
-xqSTJ5MmKBpxOc9r
+l8ZPkOFGRMtrg4Uu
