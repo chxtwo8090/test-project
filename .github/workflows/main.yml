@@ -41,14 +41,13 @@ jobs:
         docker push $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
         echo "::set-output name=image::$ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG"
 
-    # 6. ECS 작업 정의(Task Definition) 파일 생성
-   
+    # 6. ECS 작업 정의(Task Definition) 파일 생성 (수정된 버전)
     - name: Create ECS Task Definition
       id: task-def
       run: |
         aws ecs describe-task-definition --task-definition ${{ secrets.ECS_TASK_FAMILY }} --query taskDefinition > task-definition.json
         
-        # 셸 스크립트(jq)를 사용하여 JSON 파일 수정
+        # jq 명령어를 주석 없이 깔끔하게 정리하고, taskRoleArn을 추가합니다.
         jq --arg IMAGE_URL ${{ steps.build-image.outputs.image }} \
            --arg DB_HOST ${{ secrets.DB_HOST }} \
            --arg DB_NAME ${{ secrets.DB_NAME }} \
@@ -83,7 +82,6 @@ jobs:
         echo "::set-output name=task_arn::$(cat task-arn.txt)"
 
     # 8. ECS 서비스 업데이트 (배포)
- 
     - name: Deploy to ECS Service
       run: |
         aws ecs update-service \
