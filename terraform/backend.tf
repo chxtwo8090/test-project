@@ -1,4 +1,5 @@
-
+# [추가] AWS 계정 ID를 가져오기 위한 데이터 소스
+data "aws_caller_identity" "current" {}
 
 # ===============================================
 # 4. 보안 그룹 (Security Group)
@@ -30,7 +31,7 @@ resource "aws_security_group" "allow_all" {
 }
 
 # ===============================================
-# 5. 데이터베이스 (RDS)  
+# 5. 데이터베이스 (RDS)
 # ===============================================
 
 # 5-1. DB 마스터 암호 생성
@@ -114,12 +115,12 @@ resource "aws_lb_listener" "http" {
 # 8. 컨테이너 실행 (ECS)
 # ===============================================
 
-# 8-1. ECS 클러스터 (컨테이너들의 논리적 그룹)
+# 8-1. ECS 클러스터
 resource "aws_ecs_cluster" "main" {
   name = "project-cluster"
 }
 
-# 8-2. ECS가 ECR에서 이미지를 당겨올 수 있도록 하는 IAM 역할
+# 8-2. ECS Task Execution Role (ECR 이미지 Pull용)
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "project-ecs-execution-role"
   assume_role_policy = jsonencode({
@@ -137,33 +138,31 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# 8-3. ECS 로그 그룹 (디버깅용)
+# 8-3. ECS 로그 그룹
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/project-app-task"
-  retention_in_days = 7 # 7일간 로그 보관
+  retention_in_days = 7 
 }
 
-# 8-4. ECS 작업 정의 (Task Definition) - ★중요★
+# 8-4. ECS 작업 정의 (Task Definition)
 resource "aws_ecs_task_definition" "app" {
   family                   = "project-app-task"
-  cpu                      = 256  # 0.25 vCPU
-  memory                   = 512  # 0.5 GB
+  cpu                      = 256  
+  memory                   = 512  
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   
-  # === 컨테이너 정의 ===
+  # ⬇️ [수정됨] DynamoDB 접근을 위한 Task Role 추가
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  
   container_definitions = jsonencode([{
     name  = "project-app-container",
-    # [임시] NGINX 이미지로 설정. CI/CD 파이프라인이
-    # 이 부분을 실제 Flask 앱 이미지(aws_ecr_repository.app.repository_url)로
-    # 덮어쓰고 환경변수(DB 정보)를 주입할 것입니다.
-    image = "nginx:latest",
+    image = "nginx:latest", # (CI/CD가 덮어쓸 임시 이미지)
     portMappings = [{
-      containerPort = 80, # NGINX 기본 포트 (Flask도 80으로 맞출 예정)
+      containerPort = 80, 
       hostPort      = 80
     }],
-    # 로그 설정을 8-3에서 만든 로그 그룹으로 보냅니다.
     logConfiguration = {
        logDriver = "awslogs",
        options = {
@@ -181,32 +180,28 @@ resource "aws_ecs_service" "app" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   launch_type     = "FARGATE"
-  desired_count   = 1 # 우선 1개의 컨테이너만 실행
+  desired_count   = 1 
 
-  # 1단계에서 만든 퍼블릭 서브넷에 배포
   network_configuration {
     subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
     security_groups = [aws_security_group.allow_all.id]
-    assign_public_ip = true # 퍼블릭 서브넷에서 ECR 이미지를 당겨오기 위해 필요
+    assign_public_ip = true 
   }
   
-  # 7-2에서 만든 ALB 타겟 그룹과 연결
   load_balancer {
     target_group_arn = aws_lb_target_group.app.arn
     container_name   = "project-app-container"
     container_port   = 80
   }
   
-  # ALB가 준비된 후 서비스를 시작하도록 보장
   depends_on = [aws_lb_listener.http]
 }
-# ⬇️ [backend.tf 파일 맨 아래에 추가/수정]
 
 # ===============================================
 # 9. RDS 테이블 스키마 자동 생성 (Local-File + Local-Exec)
 # ===============================================
 
-# 9-1. 전체 SQL 스키마 파일을 로컬에 생성합니다. (users, posts, comments 포함)
+# 9-1. 전체 SQL 스키마 파일을 로컬에 생성
 resource "local_file" "init_db_schema" {
   filename = "${path.module}/init_db_schema.sql"
   content  = <<-EOT
@@ -244,18 +239,13 @@ resource "local_file" "init_db_schema" {
   EOT
 }
 
-
-# 9-2. RDS 인스턴스에 접속하여 SQL 스크립트를 실행합니다.
+# 9-2. RDS 인스턴스에 접속하여 SQL 스크립트를 실행
 resource "null_resource" "db_schema_setup" {
-
   # RDS와 SQL 파일 생성이 완료된 후에 실행되도록 의존성 설정
   depends_on = [aws_db_instance.main, local_file.init_db_schema] 
   
   provisioner "local-exec" {
-    # MINGW64 환경에서 Bash 셸을 사용하도록 명시
     interpreter = ["bash", "-c"] 
-    
-    # 생성된 SQL 파일을 MySQL 클라이언트를 이용해 실행합니다.
     command = <<-EOT
       mysql \
         --host=${aws_db_instance.main.address} \
@@ -265,4 +255,52 @@ resource "null_resource" "db_schema_setup" {
         < ${path.module}/init_db_schema.sql
     EOT
   }
+}
+
+# ===============================================
+# 13. [신규] ECS Task가 DynamoDB를 읽기 위한 IAM 역할
+# ===============================================
+
+# 13-1. ECS Task를 위한 Task Role 생성
+resource "aws_iam_role" "ecs_task_role" {
+  name = "project-ecs-task-role"
+  
+  # ECS 서비스가 이 역할을 맡을 수 있도록 허용
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action    = "sts:AssumeRole",
+      Effect    = "Allow",
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+    }]
+  })
+}
+
+# 13-2. DynamoDB 읽기 정책 생성
+resource "aws_iam_policy" "dynamodb_read_policy" {
+  name        = "project-dynamodb-read-policy"
+  description = "Allows ECS task to read from NaverStockData table"
+  
+  # 'NaverStockData' 테이블에 대한 Scan, Query, GetItem 권한 부여
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "dynamodb:Scan",
+          "dynamodb:Query",
+          "dynamodb:GetItem"
+        ],
+        # 'data.aws_caller_identity.current.account_id'를 사용해 계정 ID를 동적으로 참조
+        Resource = "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/NaverStockData"
+      }
+    ]
+  })
+}
+
+# 13-3. Task Role에 DynamoDB 정책 연결
+resource "aws_iam_role_policy_attachment" "ecs_task_dynamodb_read" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.dynamodb_read_policy.arn
 }

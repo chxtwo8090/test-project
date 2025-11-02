@@ -2,7 +2,7 @@ import os
 import pymysql
 import bcrypt
 import jwt
-import requests  # ⬅️ [필수] OpenAPI 호출을 위해 임포트
+import boto3  # ⬅️ [추가] AWS SDK
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify
@@ -15,6 +15,11 @@ app = Flask(__name__)
 # S3 웹사이트 주소만 허용
 CORS(app, resources={r"/*": {"origins": "http://chxtwo-git.s3-website.ap-northeast-2.amazonaws.com"}})
 SECRET_KEY = os.environ.get("SECRET_KEY", "your_strong_secret_key_that_should_be_in_secrets")
+
+# ⬇️ [추가] Boto3 DynamoDB 리소스 초기화 (ECS Task Role이 자동으로 자격 증명 제공)
+dynamodb = boto3.resource('dynamodb')
+DYNAMODB_TABLE_NAME = 'NaverStockData'
+
 
 # =======================================================
 # 2. RDS 환경 변수 로드 및 3. DB 연결 함수 (변경 없음)
@@ -76,8 +81,10 @@ def home():
     return "OK", 200
 
 # =======================================================
-# 6. 회원가입 API (/register) (변경 없음)
+# 6. ~ 10. (회원가입, 로그인, 게시판, 댓글 API... 변경 없음)
 # =======================================================
+# ... (app.py의 기존 /register, /login, /posts, /comments API 코드는 그대로 둡니다) ...
+
 @app.route('/register', methods=['POST'])
 def register_user():
     data = request.get_json()
@@ -104,9 +111,6 @@ def register_user():
     finally:
         if conn: conn.close()
 
-# =======================================================
-# 7. 로그인 API (/login) (변경 없음)
-# =======================================================
 @app.route('/login', methods=['POST'])
 def login_user():
     data = request.get_json()
@@ -131,10 +135,6 @@ def login_user():
     finally:
         if conn: conn.close()
 
-
-# =======================================================
-# 8. 게시글 API (CRUD) (변경 없음)
-# =======================================================
 @app.route('/posts', methods=['GET'])
 def list_posts():
     conn = get_db_connection()
@@ -261,9 +261,6 @@ def delete_post(post_id):
     finally:
         if conn: conn.close()
 
-# =======================================================
-# 10. 댓글 API (변경 없음)
-# =======================================================
 @app.route('/posts/<int:post_id>/comments', methods=['GET'])
 def get_comments(post_id):
     conn = get_db_connection()
@@ -309,79 +306,62 @@ def create_comment(post_id):
         if conn: conn.close()
 
 # =======================================================
-# 11. [수정됨] 금융 정보 API (OpenAPI 사용)
+# 11. [수정됨] 금융 정보 API (DynamoDB 사용)
 # =======================================================
 @app.route('/api/finance/summary', methods=['GET'])
 def get_finance_summary():
-    """네이버 실시간 지수 API를 호출하여 KOSPI, KOSDAQ 정보를 반환합니다."""
+    """DynamoDB에서 'SK'와 'NAVER'의 주식 데이터를 가져옵니다."""
     
-    url = "https://api.finance.beta.naver.com/naverpay/api/public/realtime/domestic/stock/major"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-
     try:
-        # 💡 Terraform 인프라 수정 후, 이 네트워크 요청이 성공해야 합니다.
-        response = requests.get(url, headers=headers)
-        response.raise_for_status() 
+        table = dynamodb.Table(DYNAMODB_TABLE_NAME)
         
-        data = response.json()
+        # 1. 'SK' 데이터 가져오기
+        sk_response = table.get_item(Key={'finance': 'SK'})
+        sk_data = sk_response.get('Item', {})
         
-        kospi_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSPI')
-        kosdaq_data = next(item for item in data.get('majorIndexes', []) if item.get('indexId') == 'KOSDAQ')
+        # 2. 'NAVER' 데이터 가져오기
+        naver_response = table.get_item(Key={'finance': 'NAVER'})
+        naver_data = naver_response.get('Item', {})
 
-        kospi_change_sign = kospi_data.get('fluctuationsSign', '')
-        kospi_change_val = kospi_data.get('fluctuations', '0')
-        kospi_change_ratio = kospi_data.get('fluctuationsRatio', '0')
-        
-        kosdaq_change_sign = kosdaq_data.get('fluctuationsSign', '')
-        kosdaq_change_val = kosdaq_data.get('fluctuations', '0')
-        kosdaq_change_ratio = kosdaq_data.get('fluctuationsRatio', '0')
-
+        # 3. KOSPI/KOSDAQ 대신 이 두 종목을 반환 (finance.html도 수정 필요)
         return jsonify({
-            "kospi": {
-                "value": kospi_data.get('closePrice'),
-                "change": f"{kospi_change_sign}{kospi_change_val} ({kospi_change_ratio}%)"
+            "SK": {
+                "value": sk_data.get('시가총액', 'N/A'), # DynamoDB의 '시가총액' 속성
+                "change": sk_data.get('전일비', 'N/A')  # DynamoDB의 '전일비' 속성
             },
-            "kosdaq": {
-                "value": kosdaq_data.get('closePrice'),
-                "change": f"{kosdaq_change_sign}{kosdaq_change_val} ({kosdaq_change_ratio}%)"
+            "NAVER": {
+                "value": naver_data.get('시가총액', 'N/A'),
+                "change": naver_data.get('전일비', 'N/A')
             }
         }), 200
 
     except Exception as e:
         error_detail = str(e)
-        print(f"금융 정보 API 호출 오류: {error_detail}")
+        print(f"DynamoDB 조회 오류: {error_detail}")
         
         return jsonify({
-            "error": "실시간 금융 정보를 가져오는 데 실패했습니다.", 
-            "detail": error_detail # ⬅️ 네트워크 오류(DNS)가 발생하면 여기에 표시됩니다.
+            "error": "금융 정보를 가져오는 데 실패했습니다.", 
+            "detail": error_detail
         }), 400
 
 # =======================================================
-# 12. [신규] LLM 챗봇 API (Mock Response)
+# 12. LLM 챗봇 API (Mock Response) (변경 없음)
 # =======================================================
 @app.route('/api/llm/chat', methods=['POST'])
-@token_required # ⬅️ 챗봇 기능도 로그인한 사용자만 쓰도록 설정
+@token_required
 def llm_chat():
     """사용자 질문에 대해 LLM이 응답하는 Mock API"""
     data = request.get_json()
     prompt = data.get('prompt')
-    
     if not prompt:
         return jsonify({"message": "프롬프트(질문)가 누락되었습니다."}), 400
-
-    # 💡 Mock Response: 질문 내용에 따라 다른 응답을 반환
     if "삼성전자" in prompt:
-        response_text = "현재 삼성전자는 메모리 반도체 업황 회복 기대감으로 긍정적인 시장 분위기입니다. 목표 주가는 85,000원으로 제시됩니다."
+        response_text = "현재 삼성전자는 메모리 반도체 업황 회복 기대감으로 긍정적인 시장 분위기입니다."
     elif "코스피" in prompt:
-        response_text = "오늘 코스피 시장은 외국인 매수세에 힘입어 전일 대비 0.5% 상승 마감할 것으로 예상됩니다."
+        response_text = "오늘 코스피 시장은 외국인 매수세에 힘입어 상승 마감할 것으로 예상됩니다."
     else:
         response_text = "현재 시장 분석을 위해서는 질문을 좀 더 구체적으로 입력해주세요."
-
-    return jsonify({
-        "response": response_text
-    }), 200
+    return jsonify({"response": response_text}), 200
 
 # =======================================================
 # 13. Gunicorn 또는 로컬 테스트용 실행

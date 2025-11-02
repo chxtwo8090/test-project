@@ -10,4 +10,3 @@ openai
 bcrypt
 PyJWT
 Flask-CORS
-requests
