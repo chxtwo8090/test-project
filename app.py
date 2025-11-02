@@ -17,7 +17,7 @@ from botocore.exceptions import ClientError
 AWS_REGION = 'ap-northeast-2'
 DYNAMODB_TABLE_NAME = 'NaverStockData' 
 # ---------------------------------------- 
-
+ 
 # =======================================================
 # 1. Flask 애플리케이션 초기 설정
 # =======================================================
