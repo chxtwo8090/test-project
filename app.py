@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from botocore.exceptions import ClientError
 
 # --- DynamoDB/Boto3 임포트 및 설정 추가 ---
 import boto3
