@@ -283,7 +283,6 @@
                         </div>
                     `;
                     
-                    // 💡 클릭 시 상세 보기 함수 호출
                     postElement.addEventListener('click', () => {
                         showPostModal(post.post_id); 
                     });
@@ -311,14 +310,39 @@
         });
 
         // =========================================================
-        // 3. 🛠️ [수정됨] 게시글 상세 보기 (GET /posts/:id) & 댓글 로드
+        // 3. 🛠️ [수정됨] 게시글 상세 보기 & 모달 닫기 함수 추가
         // =========================================================
+        
+        // 💡 [추가] 모달 닫기 버튼(X)에 이벤트 리스너 연결
         document.getElementById('close-post-modal-btn').addEventListener('click', closePostModal);
+        document.getElementById('close-create-modal-btn').addEventListener('click', closeCreateModal);
+        document.getElementById('close-edit-modal-btn').addEventListener('click', closeEditModal);
+
+        // 💡 [추가] 상세 보기 모달 닫기
+        function closePostModal() {
+            postModal.classList.remove('show-modal');
+            loadPosts(); // 조회수 반영을 위해 목록 새로고침
+        }
+
+        // 💡 [핵심 수정] 게시글 작성 모달 닫기 (이 함수가 누락되었습니다)
+        function closeCreateModal() {
+            createPostModal.classList.remove('show-modal');
+            // 폼 내용 초기화
+            document.getElementById('create-post-form').reset();
+        }
+        
+        // 💡 [추가] 수정 모달 닫기
+        function closeEditModal() {
+            editPostModal.classList.remove('show-modal');
+            // 수정 취소 시 상세 모달로 복귀
+            if (currentPostId) {
+                showPostModal(currentPostId);
+            }
+        }
 
         async function showPostModal(postId) {
             currentPostId = postId;
             
-            // 💡 [수정] 경고 메시지 대신 실제 API 호출
             try {
                 // 1. 게시글 상세 정보 로드 (조회수 자동 증가)
                 const response = await fetch(`${API_URL}/posts/${postId}`);
@@ -353,30 +377,26 @@
                 }
                 document.getElementById('post-modal-actions').innerHTML = actionButtons;
 
-                // 4. [수정] 버튼에 이벤트 리스너 추가
                 if (isAuthor) {
                     document.getElementById('edit-post-btn').addEventListener('click', openEditModal);
                     document.getElementById('delete-post-btn').addEventListener('click', deletePost);
                 }
                 
-                // 5. [수정] 댓글 로드 함수 호출
+                // 5. 댓글 로드
                 loadComments(postId);   
                 postModal.classList.add('show-modal'); 
 
             } catch (error) {
                 console.error("게시글 상세 로드 오류:", error);
                 alert(`게시글을 불러오는 데 실패했습니다: ${error.message}`);
-                closePostModal();
+                // 💡 closePostModal() 호출 시 무한 루프 가능성 제거
+                postModal.classList.remove('show-modal');
             }
         }
 
-        function closePostModal() {
-            postModal.classList.remove('show-modal');
-            loadPosts(); // 목록 새로고침 (조회수 반영)
-        }
 
         // =========================================================
-        // 4. 게시글 작성 로직 (POST /posts) (ID 수정)
+        // 4. 게시글 작성 로직 (POST /posts) (변경 없음)
         // =========================================================
         document.getElementById('create-post-btn').addEventListener('click', () => {
             if (!getAuthToken()) {
@@ -387,14 +407,14 @@
             createPostModal.classList.add('show-modal');
         });
 
-        document.getElementById('close-create-modal-btn').addEventListener('click', () => {
-            createPostModal.classList.remove('show-modal');
-        });
+        // (X) 버튼은 위에서 리스너를 추가했으므로 여기서는 제거
+        // document.getElementById('close-create-modal-btn').addEventListener('click', () => {
+        //     createPostModal.classList.remove('show-modal');
+        // });
 
         document.getElementById('create-post-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            // 💡 ID 수정: 겹치지 않는 ID 사용
-            const title = document.getElementById('post-title-input').value;
+            const title = document.getElementById('post-title-input').value; 
             const content = document.getElementById('post-content-input').value;
             
             const authToken = getAuthToken(); 
@@ -417,6 +437,8 @@
 
                 const data = await response.json();
                 alert('게시글이 성공적으로 작성되었습니다.');
+                
+                // 💡 [수정됨] 정의된 함수를 호출합니다.
                 closeCreateModal(); 
                 loadPosts(); 
                 
@@ -428,7 +450,7 @@
 
 
         // =========================================================
-        // 5. 🛠️ [신규] 게시글 수정/삭제 로직
+        // 5. 🛠️ [신규] 게시글 수정/삭제 로직 (변경 없음)
         // =========================================================
         
         function openEditModal() {
@@ -442,10 +464,8 @@
             editPostModal.classList.add('show-modal');    
         }
         
-        document.getElementById('close-edit-modal-btn').addEventListener('click', () => {
-            document.getElementById('edit-post-modal').classList.remove('show-modal');
-            showPostModal(currentPostId); // 상세 모달로 복귀
-        });
+        // (X) 버튼은 위에서 리스너를 추가했으므로 여기서는 제거
+        // document.getElementById('close-edit-modal-btn').addEventListener('click', () => { ... });
 
         document.getElementById('edit-post-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -474,8 +494,8 @@
 
                 alert('게시글이 성공적으로 수정되었습니다.');
                 editPostModal.classList.remove('show-modal');
-                loadPosts(); // 목록 새로고침
-                showPostModal(currentPostId); // 수정된 상세 모달 다시 열기
+                loadPosts(); 
+                showPostModal(currentPostId); 
 
             } catch (error) {
                 console.error('게시글 수정 중 오류:', error);
@@ -504,7 +524,7 @@
                 }
 
                 alert('게시글이 성공적으로 삭제되었습니다.');
-                closePostModal(); // 모달 닫고 목록 새로고침
+                closePostModal(); 
 
             } catch (error) {
                 console.error('게시글 삭제 중 오류:', error);
@@ -514,7 +534,7 @@
 
 
         // =========================================================
-        // 6. 🛠️ [신규] 댓글 로드 및 작성 로직
+        // 6. 🛠️ [신규] 댓글 로드 및 작성 로직 (변경 없음)
         // =========================================================
         async function loadComments(postId) {
             const commentsList = document.getElementById('comments-list');
