@@ -36,7 +36,6 @@
         nav a {
             margin-left: 20px;
             text-decoration: none;
-            color: #333;
             color: #1c1c1c;
             font-size: 14px;
         }
@@ -45,25 +44,13 @@
         }
 
         /* 메인 컨텐츠 영역 */
-        .container {
         .main-content {
             width: 1080px;
             margin: 20px auto;
-            display: flex; /* 메인 컨텐츠를 가로로 배치 */
             display: flex;
             gap: 20px;
         }
 
-        /* 왼쪽 섹션 (주요 지수, 관심종목, 뉴스/토론 등) */
-        .main-content {
-            flex: 3; /* 70% 정도 너비 */
-            min-width: 700px;
-        }
-
-        /* 오른쪽 섹션 (광고, 랭킹 등 보조 정보) */
-        .side-content {
-            flex: 1; /* 30% 정도 너비 */
-            min-width: 300px;
         /* 왼쪽 섹션 (금융 지수 및 시가총액) */
         .left-section {
             flex: 2; /* 오른쪽보다 2배 넓게 */
@@ -72,40 +59,22 @@
             gap: 20px;
         }
 
-        /* 공통 카드 스타일 */
-        .card {
         /* 오른쪽 섹션 (LLM 챗봇) */
         .right-section {
             flex: 1;
             background-color: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
             padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-        }
-        .card h3 {
-            border-bottom: 2px solid #008850;
-            padding-bottom: 10px;
-            margin-top: 0;
-            font-size: 18px;
-            color: #1c1c1c;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             max-height: 800px;
         }
 
-        /* 주요 지수 카드 스타일 */
-        .index-card {
         /* 금융 지수 카드 스타일 */
         .index-cards {
             display: flex;
-            justify-content: space-between;
-            text-align: center;
             gap: 15px;
             margin-bottom: 20px;
         }
-        .index-item {
         .index-card {
             background-color: #fff;
             padding: 15px;
@@ -113,57 +82,20 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             flex: 1;
         }
-        .index-item .value {
-            font-size: 32px;
-            font-weight: bold;
-            color: #d84a4a; /* 기본 하락 (빨간색) */
-            margin-top: 5px;
-        }
-        .index-item .change {
         .index-name {
             font-size: 16px;
-            color: #d84a4a; /* 기본 하락 (빨간색) */
             color: #666;
             margin-bottom: 5px;
         }
-
-        /* 뉴스 목록 스타일 */
-        .news-list {
-            list-style: none;
-            padding: 0;
-        }
-        .news-list li {
-            border-bottom: 1px dotted #eee;
-            padding: 8px 0;
-            font-size: 14px;
-        }
-        .news-list li:last-child {
-            border-bottom: none;
-        }
-        /* LLM 챗봇 스타일 */
-        #llm-chat-container {
-            border-top: 1px solid #eee;
-            margin-top: 15px;
-            padding-top: 15px;
         .index-value {
             font-size: 24px;
             font-weight: bold;
             color: #1c1c1c;
         }
-        .chat-response {
-            background-color: #e6f7ff;
-            border-left: 3px solid #008850;
-            padding: 10px;
         .index-change {
             font-size: 14px;
-            color: #333;
-            margin-bottom: 10px;
             margin-top: 5px;
         }
-    .stock-table-card {
-             margin-top: 15px; /* 국내 증시 카드와의 간격 */
-             border-top: 1px solid #008850; /* 구분을 위한 상단 라인 */
-             padding-top: 15px;
         .text-up { color: #d80000; } /* 빨간색 (상승) */
         .text-down { color: #0059c4; } /* 파란색 (하락) */
         .text-flat { color: #666; } /* 회색 (보합) */
@@ -176,26 +108,19 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             overflow-x: auto; /* 모바일 대응을 위한 스크롤 */
         }
-        #market-sum-table {
         .market-sum-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
         }
-        #market-sum-table th, #market-sum-table td {
-            border: none; /* 기존 border-collapse 유지 */
-            padding: 8px 10px;
         .market-sum-table th, .market-sum-table td {
             padding: 10px;
             border-bottom: 1px solid #eee;
             text-align: right;
             white-space: nowrap; /* 셀 내용 줄바꿈 방지 */
         }
-        #market-sum-table th {
         .market-sum-table th {
             background-color: #f7f7f7;
-            border-bottom: 1px solid #ebebeb;
-            font-weight: normal;
             font-weight: 500;
             color: #666;
             text-align: center;
@@ -205,9 +130,6 @@
             font-weight: bold;
             color: #333;
         }
-        .text-left { text-align: left !important; }
-        .red-text { color: #d84a4a; font-weight: bold; } /* 상승 */
-        .green-text { color: #008850; font-weight: bold; } /* 하락 (증시 관례) */
         .text-right { text-align: right !important; }
 
         /* LLM 챗봇 스타일 */
@@ -248,14 +170,8 @@
 
     <header>
         <div class="header-content">
-            <div class="logo"><a href="#">주요 증시</a></div>
             <div class="logo"><a href="#">네이버 증시 클론</a></div>
             <nav>
-                <a href="https://finance.naver.com/sise/">국내증시</a>
-                <a href="https://finance.naver.com/world/">해외증시</a>
-                <a href="https://finance.naver.com/marketindex/">시장분석</a>
-                <a href="https://finance.naver.com/news/">금융뉴스</a>
-                <a href="index.html">커뮤니티</a>
                 <a href="#">홈</a>
                 <a href="#">시황</a>
                 <a href="#">뉴스</a>
@@ -264,26 +180,6 @@
         </div>
     </header>
 
-    <div class="container">
-        <div class="main-content">
-            <div class="card">
-                <h3>국내 증시</h3>
-                <div class="index-card">
-                    <div class="index-item" id="kospi-index">
-                        <p>KOSPI</p>
-                        <p class="value">Error</p>
-                        <p class="change">Loading...</p>
-                    </div>
-                    <div class="index-item" id="kosdaq-index">
-                        <p>KOSDAQ</p>
-                        <p class="value">Error</p>
-                        <p class="change">Loading...</p>
-                    </div>
-                    <div class="index-item">
-                        <p>환율(USD/KRW)</p>
-                        <p class="value" style="color: #d84a4a;">1,350.50</p>
-                        <p class="change" style="color: #d84a4a;">+2.50 (+0.18%)</p>
-                    </div>
     <div class="main-content">
         
         <!-- 왼쪽: 금융 지수 및 시가총액 -->
@@ -314,103 +210,42 @@
                 </div>
             </div>
 
-            <div class="card stock-table-card">
-                <h3>시가총액 상위 종목 (크롤링 데이터)</h3>
-                <div id="market-sum-status" style="padding: 10px; color: #d84a4a; text-align: center;">데이터를 불러오는 중...</div>
-                <table id="market-sum-table" style="display: none;">
             <!-- 시가총액 테이블 영역 -->
             <h2>코스피 시가총액 상위 종목</h2>
             <div class="market-sum-table-container">
                 <p id="loading-status">데이터를 로드하는 중입니다...</p>
                 <table class="market-sum-table" id="stock-market-sum-table" style="display: none;">
                     <thead>
-                        <tr id="market-sum-header"></tr>
                         <tr></tr>
                     </thead>
-                    <tbody id="market-sum-body"></tbody>
                     <tbody>
                         <!-- 데이터는 JavaScript로 채워집니다. -->
                     </tbody>
                 </table>
             </div>
-            <div class="card">
-                <h3>금융 뉴스 및 분석 결과</h3>
-                <ul class="news-list" id="news-list-ul">
-                    <li><a href="#">[속보] 파월 의장, 인플레이션 둔화 발언... 뉴욕 증시 상승 마감</a></li>
-                    <li><a href="#">LLM 기반 종목 분석: '삼성전자', 매수 의견 지배적 (미구현)</a></li>
-                    <li><a href="#">[단독] 신규 AI 칩 출시 임박 소식에 관련주 급등</a></li>
-                </ul>
-                
-                <div id="llm-chat-container">
-                    <h4 style="font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #008850;">🤖 LLM 분석가에게 질문하기</h4>
-                    <div id="chat-response-box" class="chat-response hidden"></div>
-
-                    <form id="llm-chat-form" style="display: flex; gap: 10px;">
-                        <input type="text" id="chat-input" placeholder="예: 삼성전자 전망을 알려줘" 
-                               style="flex-grow: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" required>
-                        <button type="submit" 
-                                style="padding: 8px 15px; background-color: #008850; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer;">
-                            분석 요청
-                        </button>
-                    </form>
-                </div>
-            </div>
 
         </div>
 
-        <div class="side-content">
-            <div class="card">
-                <h3>해외 증시</h3>
-                </div>
         <!-- 오른쪽: LLM 챗봇 영역 -->
         <div class="right-section">
             <h2>LLM 금융 분석 챗봇</h2>
             <div id="llm-output">안녕하세요! 궁금한 점을 질문해 주세요.</div>
             <form id="llm-chat-form">
-                <input type="text" id="llm-input" placeholder="삼성전자 주가 전망은?" required>
+                <input type="text" id="llm-input" required>
                 <button type="submit" id="llm-submit">분석 요청</button>
             </form>
         </div>
-    </div>
 
     </div>
-
-</body>
-<script>
-        // 💡 API 주소를 실제 백엔드(ALB) 주소로 설정
+    
     <script>
         // -------------------------------------------------------------
         // 1. 시가총액 데이터 로드 및 테이블 그리기 로직 (주요 수정 사항)
         // -------------------------------------------------------------
         // 💡 API 주소를 찬규님의 ALB 주소로 설정합니다.
         const API_URL = 'http://api.chxtwo.kro.kr'; 
-        
-        // 표시할 헤더의 순서를 정의합니다.
-        const DISPLAY_HEADERS = ['종목명', '현재가', '전일비', '등락률', '시가총액', 'PER', 'ROE', '외국인비율'];
-        
-        // DynamoDB 키와 표시 헤더 매핑 (DynamoDB에서 가져온 키는 공백이 없을 수 있습니다)
-        const KEY_MAPPING = {
-            '종목명': '종목명',
-            '현재가': '현재가',
-            '전일비': '전일비',
-            '등락률': '등락률',
-            '시가총액': '시가총액',
-            'PER': 'PER',
-            'ROE': 'ROE',
-            '외국인비율': '외국인비율'
-        };
 
-
-        /**
-         * DynamoDB 크롤링 데이터를 Flask API를 통해 불러와 표시하는 함수
-         */
         async function loadStockMarketData() {
-            const statusElement = document.getElementById('market-sum-status');
-            const tableElement = document.getElementById('market-sum-table');
-            const headerRow = document.getElementById('market-sum-header');
-            const tableBody = document.getElementById('market-sum-body');
-
-            statusElement.textContent = '데이터를 불러오는 중...';
             const tableElement = document.getElementById('stock-market-sum-table');
             const statusElement = document.getElementById('loading-status');
             const tbody = tableElement.querySelector('tbody');
@@ -423,79 +258,41 @@
             tableElement.style.display = 'none';
 
             try {
-                // Flask 서버의 새로운 엔드포인트 호출 (app.py의 13번 섹션)
                 // Flask 서버의 API 엔드포인트로 Fetch 요청 (ALB 주소 사용)
                 const response = await fetch(`${API_URL}/api/stock/market-sum`);
-
+                
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || '시가총액 데이터 로드 실패');
                     const errorJson = await response.json();
                     throw new Error(`API 응답 오류: ${response.status} - ${errorJson.error || response.statusText}`);
                 }
-
+                
                 const data = await response.json();
 
-                if (data.length === 0) {
-                    statusElement.textContent = '데이터가 DynamoDB에 없습니다.';
-                    tableElement.style.display = 'none';
                 if (!data || data.length === 0) {
                     statusElement.textContent = "데이터가 비어 있습니다. fi.py로 크롤링을 먼저 실행해 주세요.";
                     statusElement.style.color = 'orange';
                     return;
                 }
 
-                // 1. 헤더 생성
-                headerRow.innerHTML = '';
-                tableBody.innerHTML = '';
-                DISPLAY_HEADERS.forEach(header => {
                 // 테이블 헤더 생성 (첫 번째 항목의 키 사용)
                 const headers = Object.keys(data[0]);
                 headers.forEach(key => {
                     const th = document.createElement('th');
-                    th.textContent = header;
-                    th.classList.add(header === '종목명' ? 'text-left' : 'text-right');
-                    headerRow.appendChild(th);
                     th.textContent = key;
                     theadRow.appendChild(th);
                 });
 
-                // 2. 데이터 행 삽입
                 // 테이블 본문 생성
                 data.forEach(item => {
-                    const tr = tableBody.insertRow();
-                    DISPLAY_HEADERS.forEach(header => {
-                        const td = tr.insertCell();
-                        const key = KEY_MAPPING[header];
                     const tr = document.createElement('tr');
                     
                     headers.forEach(key => {
                         const td = document.createElement('td');
                         let value = item[key];
-                        
-                        // 데이터가 없는 경우 '-' 처리
 
                         if (value === undefined || value === null) {
                             td.textContent = '-';
                         } else {
-                            // 등락률에 따른 색상 처리
-                            if (key === '등락률') {
-                                td.textContent = `${value.toFixed(2)}%`;
-                                if (value > 0) td.classList.add('red-text');
-                                else if (value < 0) td.classList.add('green-text');
-                            } 
-                            // 시가총액, 현재가 등 숫자에 쉼표(,) 추가
-                            else if (typeof value === 'number' && ['시가총액', '현재가'].includes(key)) {
-                                td.textContent = value.toLocaleString('ko-KR');
-                            }
-                            // 종목명은 왼쪽 정렬
-                            else if (key === '종목명') {
-                                td.textContent = value;
-                                td.classList.add('text-left');
-                                td.style.fontWeight = 'bold';
-                            }
-                            // 기타 데이터
-                            else {
                             // 숫자 형식일 경우 쉼표 추가 (종목명, 등락률은 제외)
                             if (key !== '종목명' && key !== '등락률') {
                                 // 소수점이 없는 정수로 변환 후 쉼표 추가 (Decimal 처리된 float 가정)
@@ -532,22 +329,14 @@
                 tableElement.style.display = 'none';
             }
         }
-
-        // 페이지 로드 시 크롤링 데이터 로드
+        
         // 페이지 로드 시 크롤링 데이터 로드 시작
         document.addEventListener('DOMContentLoaded', loadStockMarketData); 
 
         // -------------------------------------------------------------
-        // (기존 loadFinanceData, updateIndex, LLM 챗봇 로직은 유지됩니다.)
         // 2. 금융 지수 로드 및 업데이트 로직 (기존 코드 유지)
         // -------------------------------------------------------------
-
-        // LLM 챗봇 로직 (이전 코드와 동일)
-        document.getElementById('llm-chat-form').addEventListener('submit', async (e) => { /* ... */ });
         
-        // 금융 지수 로드 (이전 코드와 동일)
-        async function loadFinanceData() { /* ... */ }
-        function updateIndex(elementId, indexData) { /* ... */ }
         // 지수 카드 업데이트 헬퍼 함수
         function updateIndex(elementId, indexData) {
             const card = document.getElementById(elementId);
@@ -567,7 +356,6 @@
             else changeEl.classList.add('text-flat');
         }
 
-        // 페이지 로드 시 데이터 로드 시작
         // 금융 지수 데이터 로드 (가상의 API 사용, 실제 구현 필요)
         async function loadFinanceData() {
             // 이 부분은 실제 금융 지수 API를 호출해야 합니다.
@@ -591,8 +379,6 @@
         // 페이지 로드 시 금융 지수 로드 시작
         loadFinanceData(); 
 
-        // 1분(60000ms)마다 데이터 새로고침
-        setInterval(loadFinanceData, 60000); 
         // -------------------------------------------------------------
         // 3. LLM 챗봇 로직 (기존 코드 유지)
         // -------------------------------------------------------------
@@ -649,6 +435,5 @@
         });
 
     </script>
-</html>
 </body>
 </html>

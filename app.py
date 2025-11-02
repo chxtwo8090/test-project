@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from botocore.exceptions import ClientError
 
 # --- DynamoDB/Boto3 임포트 및 설정 추가 ---
 import boto3
@@ -317,29 +318,6 @@ def create_comment(post_id):
         if conn: conn.close()
 
 
-# =======================================================
-# 11. [신규] LLM 챗봇 API (Mock Response)
-# =======================================================
-@app.route('/api/llm/chat', methods=['POST'])
-def llm_chat():
-    """사용자 질문에 대해 LLM이 응답하는 Mock API"""
-    data = request.get_json()
-    prompt = data.get('prompt')
-    
-    if not prompt:
-        return jsonify({"message": "프롬프트(질문)가 누락되었습니다."}), 400
-
-    # 💡 Mock Response: 질문 내용에 따라 다른 응답을 반환
-    if "삼성전자" in prompt:
-        response_text = "현재 삼성전자는 메모리 반도체 업황 회복 기대감으로 긍정적인 시장 분위기입니다. 목표 주가는 85,000원으로 제시됩니다."
-    elif "코스피" in prompt:
-        response_text = "오늘 코스피 시장은 외국인 매수세에 힘입어 전일 대비 0.5% 상승 마감할 것으로 예상됩니다."
-    else:
-        response_text = "현재 시장 분석을 위해서는 질문을 좀 더 구체적으로 입력해주세요."
-
-    return jsonify({
-        "response": response_text
-    }), 200
 
 # =======================================================
 # 12. DynamoDB Decimal 변환 헬퍼
@@ -358,16 +336,16 @@ def get_kospi_market_sum():
     try:
         dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
         table = dynamodb.Table(DYNAMODB_TABLE_NAME)
-
+        
         # DynamoDB의 모든 항목 스캔
         response = table.scan()
         items = response['Items']
-
+        
         final_data = []
         for item in items:
             # 1. Decimal 타입을 float으로 변환
             cleaned_item = json.loads(json.dumps(item, default=decimal_default))
-
+            
             # 2. 키 정리: 'finance'를 '종목명'으로 사용하고, 불필요한 키 제거
             if 'finance' in cleaned_item:
                 cleaned_item['종목명'] = cleaned_item.pop('finance')
@@ -375,9 +353,9 @@ def get_kospi_market_sum():
                  del cleaned_item['date']
             if '크롤링시점' in cleaned_item:
                  del cleaned_item['크롤링시점']
-
+            
             final_data.append(cleaned_item)
-
+            
         return jsonify(final_data), 200
 
     except ClientError as e:
@@ -393,3 +371,4 @@ def get_kospi_market_sum():
 # =======================================================
 if __name__ == '__main__':
     # host='0.0.0.0', port=80 로 실행되어야 S3 웹사이트에서 접근 가능
+    app.run(host='0.0.0.0', port=80, debug=True)
