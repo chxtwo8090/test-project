@@ -23,7 +23,10 @@ DYNAMODB_TABLE_NAME = 'NaverStockData'
 # =======================================================
 app = Flask(__name__)
 # S3 웹사이트 주소만 허용
-CORS(app, resources={r"/*": {"origins": "http://chxtwo-git.s3-website-ap-northeast-2.amazonaws.com"}})
+CORS(app, resources={r"/*": {"origins": [
+    "http://chxtwo-git.s3-website-ap-northeast-2.amazonaws.com", # S3 웹사이트 주소
+    "http://api.chxtwo.kro.kr" # ⭐️ [필수] ALB 도메인 (요청이 이 주소에서 오므로)
+]}})
 SECRET_KEY = os.environ.get("SECRET_KEY", "your_strong_secret_key_that_should_be_in_secrets")
 
 # 💡 [수정] Gunicorn에서 실행될 때, Gunicorn의 로거를 사용하도록 설정
