@@ -33,11 +33,6 @@ resource "aws_security_group" "allow_all" {
 # 5. 데이터베이스 (RDS)  
 # ===============================================
 
-# 5-1. DB 마스터 암호 생성
-#resource "random_password" "db_password" {
- # length  = 16
-  #special = false # 특수문자 제외 (환경변수 전달 시 단순화)
-#}
 
 # 5-2. RDS 서브넷 그룹
 resource "aws_db_subnet_group" "rds_subnet_group" {
